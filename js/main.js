@@ -32,23 +32,40 @@ class Game {
     let tilingSprite = new PIXI.extras.TilingSprite(texture, this.width+300, this.height+300);
 
     let sprite = new PIXI.Sprite.fromImage('./images/moorawr.png');
-    this.player = new Player(new PIXI.Point(150, 80));
+    this.player = new Player(3, 3);
     sprite.anchor.x = 0.5, sprite.anchor.y = 0.5;
     sprite.position = this.player.position;
+
+    let startTile = [3,3];
+    let tile = this.level.tileAtColRow(startTile[0], startTile[1]);
+    if (tile != undefined && tile == 0) {
+      this.player.moveTo(startTile[0], startTile[1], this.level.tileSize);
+    } else {
+      throw new RangeError("Player outside of valid range");
+    }
     this.stage.addChild(this.grid);
     this.stage.addChild(sprite);
     this.stage.addChildAt(tilingSprite, 0);
   }
 
   update() {
-    // if (this.player.direction.x != 0) {
-    //   this.player.position.x += 1*this.player.direction.x;
-    // }
-    // if (this.player.direction.y != 0) {
-    //   this.player.position.y += 1*this.player.direction.y;
-    // }
-    // this.player.direction.x = 0;
-    // this.player.direction.y = 0;
+    let [col, row] = this.player.tilePos;
+    if (this.player.direction.x != 0) {
+      let moveToTile = this.level.tileAtColRow(col+this.player.direction.x, row);
+      if (moveToTile != undefined && moveToTile != 1) {
+        console.log("Moving!", moveToTile);
+        this.player.moveTo(col+this.player.direction.x, row, this.level.tileSize);
+      }
+    }
+    if (this.player.direction.y != 0) {
+      let moveToTile = this.level.tileAtColRow(col, row+this.player.direction.y);
+      if (moveToTile != undefined && moveToTile != 1) {
+        console.log("Moving!", moveToTile);
+        this.player.moveTo(col, row+this.player.direction.y, this.level.tileSize);
+      }
+    }
+    this.player.direction.x = 0;
+    this.player.direction.y = 0;
   }
 
   render() {
@@ -78,23 +95,26 @@ class Game {
 
   handleInput() {
     if (this.inputState.buttons.LEFT == true) {
-      // this.player.direction.x = -1;
+      this.player.direction.x = -1;
     } else if (this.inputState.buttons.RIGHT == true) {
-      // this.player.direction.x = 1;
+      this.player.direction.x = 1;
     } else {
       this.player.direction.x = 0;
     }
     if (this.inputState.buttons.DOWN == true) {
-      // this.player.direction.y = 1;
+      console.log("down!");
+      this.player.direction.y = 1;
     } else if (this.inputState.buttons.UP == true) {
-      // this.player.direction.y = -1;
+      this.player.direction.y = -1;
     } else {
       this.player.direction.y = 0;
     }
 
-    if (this.inputState.buttons.LEFT_CLICK == true) {
-      this.player.moveTo = this.inputState.position;
-      this.inputState.buttons.LEFT_CLICK = false;
+    if (this.inputState.buttons.SPACE) {
+      console.log(this.player.tilePos);
+      console.log("numCols", this.level.numCols);
+      console.log("index",this.player.tilePos[1]*this.level.numCols + this.player.tilePos[0]);
+      console.log(this.level.tileAtColRow(this.player.tilePos[0], this.player.tilePos[1]));
     }
   }
 
@@ -113,9 +133,14 @@ class Game {
 }
 
 class Player {
-  constructor(position) {
-    this.position = position;
+  constructor(col, row) {
+    this.tilePos = [col, row];
+    this.position = new PIXI.Point(10,10);
     this.direction = {x: 0, y: 0};
+  }
+  moveTo(col, row, tileSize) { // tilePos to PIXI.Point
+    this.tilePos[0] = col, this.tilePos[1] = row;
+    this.position.set((col*tileSize)+tileSize/2,(row*tileSize)+tileSize/2);
   }
 }
 
@@ -140,6 +165,12 @@ class Level {
     this.tiles[6] = 1;
     this.tiles[21] = 1;
     console.log("moo gen");
+  }
+  tileAtColRow(col, row) {
+    if (col > this.numCols-1 || col < 0) {
+      return undefined;
+    }
+    return this.tiles[row*this.numCols + col]
   }
   idxToTileCoord(index) {
     return [index%this.numCols, Math.trunc(index/this.numCols)];
@@ -181,5 +212,4 @@ window.addEventListener('keydown', function(e) {
   if (key != undefined) {
     game.inputState.buttons[key] = true;
   }
-
 });
