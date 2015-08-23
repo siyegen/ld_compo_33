@@ -26,6 +26,8 @@ class Game {
 
     this.grid = new PIXI.Graphics();
 
+    this.level = new Level(this.width, this.height, 50);
+
     let texture = new PIXI.Texture.fromImage('./images/test-sky.png');
     let tilingSprite = new PIXI.extras.TilingSprite(texture, this.width+300, this.height+300);
 
@@ -39,44 +41,60 @@ class Game {
   }
 
   update() {
-    if (this.player.direction.x != 0) {
-      this.player.position.x += 1*this.player.direction.x;
-    }
-    if (this.player.direction.y != 0) {
-      this.player.position.y += 1*this.player.direction.y;
-    }
-    this.player.direction.x = 0;
-    this.player.direction.y = 0;
+    // if (this.player.direction.x != 0) {
+    //   this.player.position.x += 1*this.player.direction.x;
+    // }
+    // if (this.player.direction.y != 0) {
+    //   this.player.position.y += 1*this.player.direction.y;
+    // }
+    // this.player.direction.x = 0;
+    // this.player.direction.y = 0;
   }
 
   render() {
-    this.grid.clear();
-    this.grid.lineStyle(2, 0x886622, 0.8);
-    for (let i = 10; i >= 0; i--) {
-      this.grid.moveTo(i*50, 0);
-      this.grid.lineTo(i*50, this.height);
-    }
-    for (let i = 10; i >= 0; i--) {
-      this.grid.moveTo(0, i*50);
-      this.grid.lineTo(this.width, i*50);
-    }
     this.renderer.render(this.stage);
+    this.grid.clear();
+    this.grid.lineStyle(2, 0x112233, 0.9);
+    // Columns
+    for (let i = this.level.numCols; i >= 0; i--) {
+      this.grid.moveTo(i*this.level.tileSize, 0);
+      this.grid.lineTo(i*this.level.tileSize, this.level.height);
+    }
+    // Rows
+    for (let i = this.level.numRows; i >= 0; i--) {
+      this.grid.moveTo(0, i*this.level.tileSize);
+      this.grid.lineTo(this.level.width, i*this.level.tileSize);
+    }
+
+    this.grid.beginFill(0x333333, 1);
+    for (let [index, tile] of this.level.tiles.entries()) {
+      if (tile == 1) {
+        let [col, row] = this.level.idxToTileCoord(index);
+        this.grid.drawRect(col*this.level.tileSize, row*this.level.tileSize, this.level.tileSize, this.level.tileSize);
+      }
+    }
+    this.grid.endFill();
   }
 
   handleInput() {
     if (this.inputState.buttons.LEFT == true) {
-      this.player.direction.x = -1;
+      // this.player.direction.x = -1;
     } else if (this.inputState.buttons.RIGHT == true) {
-      this.player.direction.x = 1;
+      // this.player.direction.x = 1;
     } else {
       this.player.direction.x = 0;
     }
     if (this.inputState.buttons.DOWN == true) {
-      this.player.direction.y = 1;
+      // this.player.direction.y = 1;
     } else if (this.inputState.buttons.UP == true) {
-      this.player.direction.y = -1;
+      // this.player.direction.y = -1;
     } else {
       this.player.direction.y = 0;
+    }
+
+    if (this.inputState.buttons.LEFT_CLICK == true) {
+      this.player.moveTo = this.inputState.position;
+      this.inputState.buttons.LEFT_CLICK = false;
     }
   }
 
@@ -102,7 +120,30 @@ class Player {
 }
 
 class Level {
+  constructor(width, height, tileSize) {
+    this.width = width;
+    this.height = height;
 
+    this.tileSize = tileSize;
+    this.tiles = [];
+
+    this.numCols = Math.floor(this.width / this.tileSize);
+    this.numRows = Math.floor(this.height / this.tileSize);
+    this.generate();
+  }
+  generate() {
+    let number = this.numCols * this.numRows;
+    for (var i = 0; i < number; i++) {
+      this.tiles.push(0);
+    };
+
+    this.tiles[6] = 1;
+    this.tiles[21] = 1;
+    console.log("moo gen");
+  }
+  idxToTileCoord(index) {
+    return [index%this.numCols, Math.trunc(index/this.numCols)];
+  }
 }
 
 let game = new Game();
@@ -118,6 +159,13 @@ let keyConfig = {
   32: "SPACE",
   90: "ZOOM",
 };
+
+window.addEventListener('click', function(e) {
+  let point = new PIXI.Point(e.clientX, e.clientY);
+  console.log("point!", point)
+  game.inputState.buttons['LEFT_CLICK'] = true;
+  game.inputState.position = point;
+});
 
 window.addEventListener('keyup', function(e) {
   let key = keyConfig[e.keyCode];
