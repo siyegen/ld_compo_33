@@ -80,10 +80,12 @@ var Game = (function () {
       var col = _player$tilePos[0];
       var row = _player$tilePos[1];
 
+      var didMove = false;
       if (this.player.direction.x != 0) {
         var moveToTile = this.level.tileAtColRow(col + this.player.direction.x, row);
         if (moveToTile != undefined && moveToTile != 1) {
           console.log("Moving!", moveToTile);
+          didMove = true;
           this.player.moveTo(col + this.player.direction.x, row, this.level.tileSize);
         }
       }
@@ -91,10 +93,14 @@ var Game = (function () {
         var moveToTile = this.level.tileAtColRow(col, row + this.player.direction.y);
         if (moveToTile != undefined && moveToTile != 1) {
           console.log("Moving!", moveToTile);
+          didMove = true;
           this.player.moveTo(col, row + this.player.direction.y, this.level.tileSize);
         }
       }
-      this.turnText.text = "Turn " + this.turn;
+      if (didMove) {
+        this.turn++;
+        this.turnText.text = "Turn " + this.turn;
+      }
       this.player.direction.x = 0;
       this.player.direction.y = 0;
     }
@@ -201,7 +207,6 @@ var Game = (function () {
       // if (this.currentTime - this.prevTime >= 150) {
       if (this.gameState.shouldUpdate) {
         console.log("update");
-        this.turn++;
         this.update();
         this.prevTime = this.currentTime;
         this.gameState.shouldUpdate = false;
