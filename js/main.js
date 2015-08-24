@@ -21,6 +21,18 @@ class Game {
       },
     };
 
+    this.gameState = {shouldUpdate: false};
+
+    this.currentTime = new Date();
+    this.prevTime = new Date();
+
+    this.turn = 0;
+    this.turnText = new PIXI.Text("Turn " + this.turn,{font : '24px Arial', fill : 0x3f3863, align : 'center'})
+    this.bottomHud = new PIXI.Container();
+    this.bottomHud.addChild(this.turnText);
+    this.bottomHud.position = new PIXI.Point(this.width - (this.turnText.width+50), this.height - this.turnText.height);
+    console.log("hud pos", this.bottomHud.position);
+
     this.renderer = PIXI.autoDetectRenderer(this.width, this.height);
     this.stage = new PIXI.Container();
 
@@ -46,6 +58,7 @@ class Game {
     this.stage.addChild(this.grid);
     this.stage.addChild(sprite);
     this.stage.addChildAt(tilingSprite, 0);
+    this.stage.addChild(this.bottomHud);
   }
 
   update() {
@@ -64,6 +77,7 @@ class Game {
         this.player.moveTo(col, row+this.player.direction.y, this.level.tileSize);
       }
     }
+    this.turnText.text = "Turn " + this.turn;
     this.player.direction.x = 0;
     this.player.direction.y = 0;
   }
@@ -96,18 +110,27 @@ class Game {
   handleInput() {
     if (this.inputState.buttons.LEFT == true) {
       this.player.direction.x = -1;
+      this.inputState.buttons.LEFT = false;
+      this.player.isActing = true;
+      this.gameState.shouldUpdate = true;
     } else if (this.inputState.buttons.RIGHT == true) {
       this.player.direction.x = 1;
-    } else {
-      this.player.direction.x = 0;
+      this.inputState.buttons.RIGHT = false;
+      this.player.isActing = true;
+      this.gameState.shouldUpdate = true;
     }
+
     if (this.inputState.buttons.DOWN == true) {
-      console.log("down!");
       this.player.direction.y = 1;
+      this.inputState.buttons.DOWN = false;
+      this.player.isActing = true;
+      this.gameState.shouldUpdate = true;
+      console.log("moving, should update");
     } else if (this.inputState.buttons.UP == true) {
       this.player.direction.y = -1;
-    } else {
-      this.player.direction.y = 0;
+      this.inputState.buttons.UP = false;
+      this.player.isActing = true;
+      this.gameState.shouldUpdate = true;
     }
 
     if (this.inputState.buttons.SPACE) {
@@ -119,8 +142,19 @@ class Game {
   }
 
   loop() {
+    this.currentTime = new Date();
     this.handleInput();
-    this.update();
+    // should only update after a move
+    // if (this.currentTime - this.prevTime >= 150) {
+    if (this.gameState.shouldUpdate) {
+      console.log("update");
+      this.turn++;
+      this.update();
+      this.prevTime = this.currentTime;
+      this.gameState.shouldUpdate = false;
+    }
+    // }
+    // Time.sleep(500);
     this.render();
     requestAnimationFrame(() => this.loop());
   }
@@ -137,6 +171,7 @@ class Player {
     this.tilePos = [col, row];
     this.position = new PIXI.Point(10,10);
     this.direction = {x: 0, y: 0};
+    this.isActing = false;
   }
   moveTo(col, row, tileSize) { // tilePos to PIXI.Point
     this.tilePos[0] = col, this.tilePos[1] = row;
