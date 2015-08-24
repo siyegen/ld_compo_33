@@ -1,11 +1,11 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-'use strict';
+"use strict";
 
-var _slicedToArray = (function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i['return']) _i['return'](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError('Invalid attempt to destructure non-iterable instance'); } }; })();
+var _slicedToArray = (function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; })();
 
-var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ('value' in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
+var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
 
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } }
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 console.log("Cool code!");
 
@@ -32,6 +32,18 @@ var Game = (function () {
       }
     };
 
+    this.gameState = { shouldUpdate: false };
+
+    this.currentTime = new Date();
+    this.prevTime = new Date();
+
+    this.turn = 0;
+    this.turnText = new PIXI.Text("Turn " + this.turn, { font: '24px Arial', fill: 0x3f3863, align: 'center' });
+    this.bottomHud = new PIXI.Container();
+    this.bottomHud.addChild(this.turnText);
+    this.bottomHud.position = new PIXI.Point(this.width - (this.turnText.width + 50), this.height - this.turnText.height);
+    console.log("hud pos", this.bottomHud.position);
+
     this.renderer = PIXI.autoDetectRenderer(this.width, this.height);
     this.stage = new PIXI.Container();
 
@@ -57,10 +69,11 @@ var Game = (function () {
     this.stage.addChild(this.grid);
     this.stage.addChild(sprite);
     this.stage.addChildAt(tilingSprite, 0);
+    this.stage.addChild(this.bottomHud);
   }
 
   _createClass(Game, [{
-    key: 'update',
+    key: "update",
     value: function update() {
       var _player$tilePos = _slicedToArray(this.player.tilePos, 2);
 
@@ -81,11 +94,12 @@ var Game = (function () {
           this.player.moveTo(col, row + this.player.direction.y, this.level.tileSize);
         }
       }
+      this.turnText.text = "Turn " + this.turn;
       this.player.direction.x = 0;
       this.player.direction.y = 0;
     }
   }, {
-    key: 'render',
+    key: "render",
     value: function render() {
       this.renderer.render(this.stage);
       this.grid.clear();
@@ -129,8 +143,8 @@ var Game = (function () {
         _iteratorError = err;
       } finally {
         try {
-          if (!_iteratorNormalCompletion && _iterator['return']) {
-            _iterator['return']();
+          if (!_iteratorNormalCompletion && _iterator["return"]) {
+            _iterator["return"]();
           }
         } finally {
           if (_didIteratorError) {
@@ -142,22 +156,31 @@ var Game = (function () {
       this.grid.endFill();
     }
   }, {
-    key: 'handleInput',
+    key: "handleInput",
     value: function handleInput() {
       if (this.inputState.buttons.LEFT == true) {
         this.player.direction.x = -1;
+        this.inputState.buttons.LEFT = false;
+        this.player.isActing = true;
+        this.gameState.shouldUpdate = true;
       } else if (this.inputState.buttons.RIGHT == true) {
         this.player.direction.x = 1;
-      } else {
-        this.player.direction.x = 0;
+        this.inputState.buttons.RIGHT = false;
+        this.player.isActing = true;
+        this.gameState.shouldUpdate = true;
       }
+
       if (this.inputState.buttons.DOWN == true) {
-        console.log("down!");
         this.player.direction.y = 1;
+        this.inputState.buttons.DOWN = false;
+        this.player.isActing = true;
+        this.gameState.shouldUpdate = true;
+        console.log("moving, should update");
       } else if (this.inputState.buttons.UP == true) {
         this.player.direction.y = -1;
-      } else {
-        this.player.direction.y = 0;
+        this.inputState.buttons.UP = false;
+        this.player.isActing = true;
+        this.gameState.shouldUpdate = true;
       }
 
       if (this.inputState.buttons.SPACE) {
@@ -168,19 +191,30 @@ var Game = (function () {
       }
     }
   }, {
-    key: 'loop',
+    key: "loop",
     value: function loop() {
       var _this = this;
 
+      this.currentTime = new Date();
       this.handleInput();
-      this.update();
+      // should only update after a move
+      // if (this.currentTime - this.prevTime >= 150) {
+      if (this.gameState.shouldUpdate) {
+        console.log("update");
+        this.turn++;
+        this.update();
+        this.prevTime = this.currentTime;
+        this.gameState.shouldUpdate = false;
+      }
+      // }
+      // Time.sleep(500);
       this.render();
       requestAnimationFrame(function () {
         return _this.loop();
       });
     }
   }, {
-    key: 'start',
+    key: "start",
     value: function start() {
       console.log("Start game");
       document.body.appendChild(this.renderer.view);
@@ -198,10 +232,11 @@ var Player = (function () {
     this.tilePos = [col, row];
     this.position = new PIXI.Point(10, 10);
     this.direction = { x: 0, y: 0 };
+    this.isActing = false;
   }
 
   _createClass(Player, [{
-    key: 'moveTo',
+    key: "moveTo",
     value: function moveTo(col, row, tileSize) {
       // tilePos to PIXI.Point
       this.tilePos[0] = col, this.tilePos[1] = row;
@@ -228,7 +263,7 @@ var Level = (function () {
   }
 
   _createClass(Level, [{
-    key: 'generate',
+    key: "generate",
     value: function generate() {
       var number = this.numCols * this.numRows;
       for (var i = 0; i < number; i++) {
@@ -240,7 +275,7 @@ var Level = (function () {
       console.log("moo gen");
     }
   }, {
-    key: 'tileAtColRow',
+    key: "tileAtColRow",
     value: function tileAtColRow(col, row) {
       if (col > this.numCols - 1 || col < 0) {
         return undefined;
@@ -248,7 +283,7 @@ var Level = (function () {
       return this.tiles[row * this.numCols + col];
     }
   }, {
-    key: 'idxToTileCoord',
+    key: "idxToTileCoord",
     value: function idxToTileCoord(index) {
       return [index % this.numCols, Math.trunc(index / this.numCols)];
     }
