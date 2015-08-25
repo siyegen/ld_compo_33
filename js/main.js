@@ -52,23 +52,32 @@ class Game {
     let tilingSprite = new PIXI.extras.TilingSprite(texture, this.width+300, this.height+300);
 
     // setup for enemeies
-    let enemySprite = new PIXI.Sprite.fromImage('./images/duck_front.png');
     this.enemies = [];
-    for (var i = 0; i < 10; i++) {
-      this.enemies.push();
+    this.enemySprites = [];
+    for (let i = 0; i < 9; i++) {
+      let enemySprite = new PIXI.Sprite.fromImage('./images/duck_front.png');
+      let enemy = new Enemy(0+getRandomInt(0,this.level.numCols-1 -  i), 4+i);
+      enemySprite.anchor.set(0.5, 0.5);
+      enemySprite.position = enemy.position;
+      this.enemies.push(enemy);
+      this.enemySprites.push(enemySprite);
+      // add enemy to the level!
+      let enemyStartTile = enemy.tilePos;
+      let enemyTile = this.level.tileAtColRow(enemyStartTile[0], enemyStartTile[1]);
+      if (enemyTile != undefined && enemyTile == 0) {
+        enemy.moveTo(enemyStartTile[0], enemyStartTile[1], this.level.tileSize);
+      } else {
+        throw new RangeError("Enemy outside of valid range");
+      }
     };
-    this.enemy = new Enemy(15, 9);
-    enemySprite.anchor.set(0.5, 0.5);
-    enemySprite.position = this.enemy.position;
 
-    // add enemy to the level!
-    let enemyStartTile = this.enemy.tilePos;
-    let enemyTile = this.level.tileAtColRow(enemyStartTile[0], enemyStartTile[1]);
-    if (enemyTile != undefined && enemyTile == 0) {
-      this.enemy.moveTo(enemyStartTile[0], enemyStartTile[1], this.level.tileSize);
-    } else {
-      throw new RangeError("Enemy outside of valid range");
-    }
+    // let enemyStartTile = this.enemy.tilePos;
+    // let enemyTile = this.level.tileAtColRow(enemyStartTile[0], enemyStartTile[1]);
+    // if (enemyTile != undefined && enemyTile == 0) {
+    //   this.enemy.moveTo(enemyStartTile[0], enemyStartTile[1], this.level.tileSize);
+    // } else {
+    //   throw new RangeError("Enemy outside of valid range");
+    // }
 
     // setup for player
     let sprite = new PIXI.Sprite.fromImage('./images/moorawr.png');
@@ -88,7 +97,9 @@ class Game {
     // and then we add grid, sprite, bg, and hud to the stage
     this.stage.addChild(this.grid);
     this.stage.addChild(sprite);
-    this.stage.addChild(enemySprite);
+    for (let enemySprite of this.enemySprites) {
+      this.stage.addChild(enemySprite);
+    }
     this.stage.addChildAt(tilingSprite, 0); // bottom position
     this.stage.addChild(this.bottomHud);
   }
@@ -116,18 +127,20 @@ class Game {
 
     if (didMove) {
       // for now, we'll only move enemies when player moved
-      let findMove = true, attempt = 0;
-      do {
-        let randomTile = this.enemy.randomMove();
-        console.log("finding move", randomTile);
-        let moveToTile = this.level.tileAtColRow(randomTile[0], randomTile[1]);
-        if (moveToTile != undefined && moveToTile != 1) {
-          console.log("Moving enemy!", moveToTile);
-          findMove = false;
-          this.enemy.moveTo(randomTile[0], randomTile[1], this.level.tileSize);
-        }
-        attempt++;
-      } while(findMove && attempt < 4)
+      for(let enemy of this.enemies) {
+        let findMove = true, attempt = 0;
+        do {
+          let randomTile = enemy.randomMove();
+          console.log("finding move", randomTile);
+          let moveToTile = this.level.tileAtColRow(randomTile[0], randomTile[1]);
+          if (moveToTile != undefined && moveToTile != 1) {
+            console.log("Moving enemy!", moveToTile);
+            findMove = false;
+            enemy.moveTo(randomTile[0], randomTile[1], this.level.tileSize);
+          }
+          attempt++;
+        } while(findMove && attempt < 4)
+      }
       this.turn++;
       this.turnText.text = "Turn " + this.turn;
     }

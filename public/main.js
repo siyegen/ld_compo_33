@@ -63,23 +63,32 @@ var Game = (function () {
     var tilingSprite = new PIXI.extras.TilingSprite(texture, this.width + 300, this.height + 300);
 
     // setup for enemeies
-    var enemySprite = new PIXI.Sprite.fromImage('./images/duck_front.png');
     this.enemies = [];
-    for (var i = 0; i < 10; i++) {
-      this.enemies.push();
+    this.enemySprites = [];
+    for (var i = 0; i < 9; i++) {
+      var enemySprite = new PIXI.Sprite.fromImage('./images/duck_front.png');
+      var enemy = new Enemy(0 + getRandomInt(0, this.level.numCols - 1 - i), 4 + i);
+      enemySprite.anchor.set(0.5, 0.5);
+      enemySprite.position = enemy.position;
+      this.enemies.push(enemy);
+      this.enemySprites.push(enemySprite);
+      // add enemy to the level!
+      var enemyStartTile = enemy.tilePos;
+      var enemyTile = this.level.tileAtColRow(enemyStartTile[0], enemyStartTile[1]);
+      if (enemyTile != undefined && enemyTile == 0) {
+        enemy.moveTo(enemyStartTile[0], enemyStartTile[1], this.level.tileSize);
+      } else {
+        throw new RangeError("Enemy outside of valid range");
+      }
     };
-    this.enemy = new Enemy(15, 9);
-    enemySprite.anchor.set(0.5, 0.5);
-    enemySprite.position = this.enemy.position;
 
-    // add enemy to the level!
-    var enemyStartTile = this.enemy.tilePos;
-    var enemyTile = this.level.tileAtColRow(enemyStartTile[0], enemyStartTile[1]);
-    if (enemyTile != undefined && enemyTile == 0) {
-      this.enemy.moveTo(enemyStartTile[0], enemyStartTile[1], this.level.tileSize);
-    } else {
-      throw new RangeError("Enemy outside of valid range");
-    }
+    // let enemyStartTile = this.enemy.tilePos;
+    // let enemyTile = this.level.tileAtColRow(enemyStartTile[0], enemyStartTile[1]);
+    // if (enemyTile != undefined && enemyTile == 0) {
+    //   this.enemy.moveTo(enemyStartTile[0], enemyStartTile[1], this.level.tileSize);
+    // } else {
+    //   throw new RangeError("Enemy outside of valid range");
+    // }
 
     // setup for player
     var sprite = new PIXI.Sprite.fromImage('./images/moorawr.png');
@@ -99,7 +108,31 @@ var Game = (function () {
     // and then we add grid, sprite, bg, and hud to the stage
     this.stage.addChild(this.grid);
     this.stage.addChild(sprite);
-    this.stage.addChild(enemySprite);
+    var _iteratorNormalCompletion = true;
+    var _didIteratorError = false;
+    var _iteratorError = undefined;
+
+    try {
+      for (var _iterator = this.enemySprites[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+        var enemySprite = _step.value;
+
+        this.stage.addChild(enemySprite);
+      }
+    } catch (err) {
+      _didIteratorError = true;
+      _iteratorError = err;
+    } finally {
+      try {
+        if (!_iteratorNormalCompletion && _iterator["return"]) {
+          _iterator["return"]();
+        }
+      } finally {
+        if (_didIteratorError) {
+          throw _iteratorError;
+        }
+      }
+    }
+
     this.stage.addChildAt(tilingSprite, 0); // bottom position
     this.stage.addChild(this.bottomHud);
   }
@@ -134,19 +167,43 @@ var Game = (function () {
 
       if (didMove) {
         // for now, we'll only move enemies when player moved
-        var findMove = true,
-            attempt = 0;
-        do {
-          var randomTile = this.enemy.randomMove();
-          console.log("finding move", randomTile);
-          var moveToTile = this.level.tileAtColRow(randomTile[0], randomTile[1]);
-          if (moveToTile != undefined && moveToTile != 1) {
-            console.log("Moving enemy!", moveToTile);
-            findMove = false;
-            this.enemy.moveTo(randomTile[0], randomTile[1], this.level.tileSize);
+        var _iteratorNormalCompletion2 = true;
+        var _didIteratorError2 = false;
+        var _iteratorError2 = undefined;
+
+        try {
+          for (var _iterator2 = this.enemies[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+            var enemy = _step2.value;
+
+            var findMove = true,
+                attempt = 0;
+            do {
+              var randomTile = enemy.randomMove();
+              console.log("finding move", randomTile);
+              var moveToTile = this.level.tileAtColRow(randomTile[0], randomTile[1]);
+              if (moveToTile != undefined && moveToTile != 1) {
+                console.log("Moving enemy!", moveToTile);
+                findMove = false;
+                enemy.moveTo(randomTile[0], randomTile[1], this.level.tileSize);
+              }
+              attempt++;
+            } while (findMove && attempt < 4);
           }
-          attempt++;
-        } while (findMove && attempt < 4);
+        } catch (err) {
+          _didIteratorError2 = true;
+          _iteratorError2 = err;
+        } finally {
+          try {
+            if (!_iteratorNormalCompletion2 && _iterator2["return"]) {
+              _iterator2["return"]();
+            }
+          } finally {
+            if (_didIteratorError2) {
+              throw _iteratorError2;
+            }
+          }
+        }
+
         this.turn++;
         this.turnText.text = "Turn " + this.turn;
       }
@@ -164,16 +221,16 @@ var Game = (function () {
 
       // Drawing tiles
       this.grid.beginFill(0x998899, 1);
-      var _iteratorNormalCompletion = true;
-      var _didIteratorError = false;
-      var _iteratorError = undefined;
+      var _iteratorNormalCompletion3 = true;
+      var _didIteratorError3 = false;
+      var _iteratorError3 = undefined;
 
       try {
-        for (var _iterator = this.level.tiles.entries()[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-          var _step$value = _slicedToArray(_step.value, 2);
+        for (var _iterator3 = this.level.tiles.entries()[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+          var _step3$value = _slicedToArray(_step3.value, 2);
 
-          var index = _step$value[0];
-          var tile = _step$value[1];
+          var index = _step3$value[0];
+          var tile = _step3$value[1];
 
           if (tile == 1) {
             var _level$idxToTileCoord = this.level.idxToTileCoord(index);
@@ -187,16 +244,16 @@ var Game = (function () {
           }
         }
       } catch (err) {
-        _didIteratorError = true;
-        _iteratorError = err;
+        _didIteratorError3 = true;
+        _iteratorError3 = err;
       } finally {
         try {
-          if (!_iteratorNormalCompletion && _iterator["return"]) {
-            _iterator["return"]();
+          if (!_iteratorNormalCompletion3 && _iterator3["return"]) {
+            _iterator3["return"]();
           }
         } finally {
-          if (_didIteratorError) {
-            throw _iteratorError;
+          if (_didIteratorError3) {
+            throw _iteratorError3;
           }
         }
       }
