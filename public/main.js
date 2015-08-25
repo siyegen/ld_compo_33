@@ -17,6 +17,10 @@ function normalAcc(v0, v1) {
   return lerp(v0, v1, .5);
 }
 
+function getRandomInt(min, max) {
+  return Math.floor(Math.random() * (max - min)) + min;
+}
+
 var Game = (function () {
   function Game() {
     _classCallCheck(this, Game);
@@ -32,11 +36,14 @@ var Game = (function () {
       }
     };
 
+    // used to control whether to udpate
     this.gameState = { shouldUpdate: false };
 
+    // not used atm, was used for control limiting
     this.currentTime = new Date();
     this.prevTime = new Date();
 
+    // Turn tracking + simple hud setup
     this.turn = 0;
     this.turnText = new PIXI.Text("Turn " + this.turn, { font: '24px Arial', fill: 0x3f3863, align: 'center' });
     this.bottomHud = new PIXI.Container();
@@ -45,20 +52,42 @@ var Game = (function () {
     console.log("hud pos", this.bottomHud.position);
 
     this.renderer = PIXI.autoDetectRenderer(this.width, this.height);
-    this.stage = new PIXI.Container();
 
+    // stage holds everything right now, grid draws level
+    this.stage = new PIXI.Container();
     this.grid = new PIXI.Graphics();
 
+    // setup for the level, simple and hardcoded atm
     this.level = new Level(this.width, this.height, 50);
-
     var texture = new PIXI.Texture.fromImage('./images/test-sky.png');
     var tilingSprite = new PIXI.extras.TilingSprite(texture, this.width + 300, this.height + 300);
 
+    // setup for enemeies
+    var enemySprite = new PIXI.Sprite.fromImage('./images/duck_front.png');
+    this.enemies = [];
+    for (var i = 0; i < 10; i++) {
+      this.enemies.push();
+    };
+    this.enemy = new Enemy(15, 9);
+    enemySprite.anchor.set(0.5, 0.5);
+    enemySprite.position = this.enemy.position;
+
+    // add enemy to the level!
+    var enemyStartTile = this.enemy.tilePos;
+    var enemyTile = this.level.tileAtColRow(enemyStartTile[0], enemyStartTile[1]);
+    if (enemyTile != undefined && enemyTile == 0) {
+      this.enemy.moveTo(enemyStartTile[0], enemyStartTile[1], this.level.tileSize);
+    } else {
+      throw new RangeError("Enemy outside of valid range");
+    }
+
+    // setup for player
     var sprite = new PIXI.Sprite.fromImage('./images/moorawr.png');
     this.player = new Player(3, 3);
-    sprite.anchor.x = 0.5, sprite.anchor.y = 0.5;
+    sprite.anchor.set(0.5, 0.5);
     sprite.position = this.player.position;
 
+    // basic starting point, does a check to make sure it will work
     var startTile = [3, 3];
     var tile = this.level.tileAtColRow(startTile[0], startTile[1]);
     if (tile != undefined && tile == 0) {
@@ -66,15 +95,20 @@ var Game = (function () {
     } else {
       throw new RangeError("Player outside of valid range");
     }
+
+    // and then we add grid, sprite, bg, and hud to the stage
     this.stage.addChild(this.grid);
     this.stage.addChild(sprite);
-    this.stage.addChildAt(tilingSprite, 0);
+    this.stage.addChild(enemySprite);
+    this.stage.addChildAt(tilingSprite, 0); // bottom position
     this.stage.addChild(this.bottomHud);
   }
 
   _createClass(Game, [{
     key: "update",
     value: function update() {
+      // needed for move checks
+
       var _player$tilePos = _slicedToArray(this.player.tilePos, 2);
 
       var col = _player$tilePos[0];
@@ -97,10 +131,27 @@ var Game = (function () {
           this.player.moveTo(col, row + this.player.direction.y, this.level.tileSize);
         }
       }
+
       if (didMove) {
+        // for now, we'll only move enemies when player moved
+        var findMove = true,
+            attempt = 0;
+        do {
+          var randomTile = this.enemy.randomMove();
+          console.log("finding move", randomTile);
+          var moveToTile = this.level.tileAtColRow(randomTile[0], randomTile[1]);
+          if (moveToTile != undefined && moveToTile != 1) {
+            console.log("Moving enemy!", moveToTile);
+            findMove = false;
+            this.enemy.moveTo(randomTile[0], randomTile[1], this.level.tileSize);
+          }
+          attempt++;
+        } while (findMove && attempt < 4);
         this.turn++;
         this.turnText.text = "Turn " + this.turn;
       }
+
+      // safe to always set this back
       this.player.direction.x = 0;
       this.player.direction.y = 0;
     }
@@ -109,19 +160,10 @@ var Game = (function () {
     value: function render() {
       this.renderer.render(this.stage);
       this.grid.clear();
-      this.grid.lineStyle(2, 0x112233, 0.9);
-      // Columns
-      for (var i = this.level.numCols; i >= 0; i--) {
-        this.grid.moveTo(i * this.level.tileSize, 0);
-        this.grid.lineTo(i * this.level.tileSize, this.level.height);
-      }
-      // Rows
-      for (var i = this.level.numRows; i >= 0; i--) {
-        this.grid.moveTo(0, i * this.level.tileSize);
-        this.grid.lineTo(this.level.width, i * this.level.tileSize);
-      }
+      this.grid.lineStyle(2, 0x112299, 0.7);
 
-      this.grid.beginFill(0x333333, 1);
+      // Drawing tiles
+      this.grid.beginFill(0x998899, 1);
       var _iteratorNormalCompletion = true;
       var _didIteratorError = false;
       var _iteratorError = undefined;
@@ -160,6 +202,16 @@ var Game = (function () {
       }
 
       this.grid.endFill();
+      // Columns
+      for (var i = this.level.numCols; i >= 0; i--) {
+        this.grid.moveTo(i * this.level.tileSize, 0);
+        this.grid.lineTo(i * this.level.tileSize, this.level.height);
+      }
+      // Rows
+      for (var i = this.level.numRows; i >= 0; i--) {
+        this.grid.moveTo(0, i * this.level.tileSize);
+        this.grid.lineTo(this.level.width, i * this.level.tileSize);
+      }
     }
   }, {
     key: "handleInput",
@@ -181,7 +233,6 @@ var Game = (function () {
         this.inputState.buttons.DOWN = false;
         this.player.isActing = true;
         this.gameState.shouldUpdate = true;
-        console.log("moving, should update");
       } else if (this.inputState.buttons.UP == true) {
         this.player.direction.y = -1;
         this.inputState.buttons.UP = false;
@@ -228,6 +279,36 @@ var Game = (function () {
   }]);
 
   return Game;
+})();
+
+var MOVES = ["UP", "RIGHT", "DOWN", "LEFT"];
+
+var Enemy = (function () {
+  function Enemy(col, row) {
+    _classCallCheck(this, Enemy);
+
+    this.tilePos = [col, row];
+    this.position = new PIXI.Point(10, 10);
+    this.direction = { x: 0, y: 0 };
+    this.directionMap = { UP: [0, -1], RIGHT: [1, 0], DOWN: [0, 1], LEFT: [-1, 0] };
+  }
+
+  _createClass(Enemy, [{
+    key: "moveTo",
+    value: function moveTo(col, row, tileSize) {
+      // tilePos to PIXI.Point
+      this.tilePos[0] = col, this.tilePos[1] = row;
+      this.position.set(col * tileSize + tileSize / 2, row * tileSize + tileSize / 2);
+    }
+  }, {
+    key: "randomMove",
+    value: function randomMove() {
+      var direction = this.directionMap[MOVES[getRandomInt(0, 4)]]; // 0 up, 1 right, 2 down, 3 left
+      return [this.tilePos[0] + direction[0], this.tilePos[1] + direction[1]];
+    }
+  }]);
+
+  return Enemy;
 })();
 
 var Player = (function () {
