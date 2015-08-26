@@ -1,4 +1,5 @@
 console.log("Cool code!");
+let InputComponent = require('./input_component.js');
 
 function lerp(v0, v1, t) {
   return (1-t)*v0 + t*v1;
@@ -54,7 +55,7 @@ class Game {
     // setup for enemeies
     this.enemies = [];
     this.enemySprites = [];
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < 1; i++) {
       let enemySprite = new PIXI.Sprite.fromImage('./images/duck_front.png');
       let enemy = new Enemy(0+getRandomInt(0,this.level.numCols-1 -  i), 4+i);
       enemySprite.anchor.set(0.5, 0.5);
@@ -80,10 +81,10 @@ class Game {
     // }
 
     // setup for player
-    let sprite = new PIXI.Sprite.fromImage('./images/moorawr.png');
-    this.player = new Player(3, 3);
-    sprite.anchor.set(0.5, 0.5);
-    sprite.position = this.player.position;
+    this.pSprite = new PIXI.Sprite.fromImage('./images/moorawr.png');
+    this.player = new Player(3, 3, new InputComponent(this.inputState));
+    this.pSprite.anchor.set(0.5, 0.5);
+    this.pSprite.position = this.player.position;
 
     // basic starting point, does a check to make sure it will work
     let startTile = [3,3];
@@ -94,49 +95,43 @@ class Game {
       throw new RangeError("Player outside of valid range");
     }
 
+    this.hpStatusHud = new PIXI.Graphics();
     // and then we add grid, sprite, bg, and hud to the stage
     this.stage.addChild(this.grid);
-    this.stage.addChild(sprite);
+    this.stage.addChild(this.pSprite);
     for (let enemySprite of this.enemySprites) {
       this.stage.addChild(enemySprite);
     }
     this.stage.addChildAt(tilingSprite, 0); // bottom position
     this.stage.addChild(this.bottomHud);
+    this.pSprite.addChild(this.hpStatusHud);
   }
 
   update() {
-    // needed for move checks
-    let [col, row] = this.player.tilePos;
-    let didMove = false;
-    if (this.player.direction.x != 0) {
-      let moveToTile = this.level.tileAtColRow(col+this.player.direction.x, row);
-      if (moveToTile != undefined && moveToTile != 1) {
-        console.log("Moving!", moveToTile);
-        didMove = true;
-        this.player.moveTo(col+this.player.direction.x, row, this.level.tileSize);
-      }
+    this.player.update();
+    if (!this.player.isActing) {
+      return;
     }
-    if (this.player.direction.y != 0) {
-      let moveToTile = this.level.tileAtColRow(col, row+this.player.direction.y);
-      if (moveToTile != undefined && moveToTile != 1) {
-        console.log("Moving!", moveToTile);
-        didMove = true;
-        this.player.moveTo(col, row+this.player.direction.y, this.level.tileSize);
-      }
+    // needed for move checks
+    let didMove = false;
+    let [col, row] = this.player.tilePos;
+    col += this.player.direction.x;
+    row += this.player.direction.y;
+
+    if (this.level.canMove(col, row)) {
+      this.player.moveTo(col, row, this.level.tileSize);
+      didMove = true;
     }
 
+    // for now, we'll only move enemies when player moved
     if (didMove) {
-      // for now, we'll only move enemies when player moved
       for(let enemy of this.enemies) {
         let findMove = true, attempt = 0;
         do {
-          let randomTile = enemy.randomMove();
-          console.log("finding move", randomTile);
-          let moveToTile = this.level.tileAtColRow(randomTile[0], randomTile[1]);
-          if (moveToTile != undefined && moveToTile != 1) {
-            console.log("Moving enemy!", moveToTile);
+          let randomTilePos = enemy.updateAI();
+          if (this.level.canMove(...randomTilePos)) {
+            enemy.moveTo(randomTilePos[0], randomTilePos[1], this.level.tileSize);
             findMove = false;
-            enemy.moveTo(randomTile[0], randomTile[1], this.level.tileSize);
           }
           attempt++;
         } while(findMove && attempt < 4)
@@ -146,6 +141,7 @@ class Game {
     }
 
     // safe to always set this back
+    this.player.isActing = false;
     this.player.direction.x = 0;
     this.player.direction.y = 0;
   }
@@ -171,38 +167,24 @@ class Game {
     }
     // Rows
     for (let i = this.level.numRows; i >= 0; i--) {
-      this.grid.moveTo(0, i*this.level.tileSize);
+      this.grid.moveTo(0, i*this.level.tileSize)
       this.grid.lineTo(this.level.width, i*this.level.tileSize);
     }
+    // draw player hp
+    this.hpStatusHud.clear();
+    this.hpStatusHud.beginFill(0x000000, 1);
+    this.hpStatusHud.drawRect(-(this.pSprite.width/2+5), (this.pSprite.height/2-4), 40, 5);
+    this.hpStatusHud.endFill();
+    this.hpStatusHud.beginFill(0x22CC22, 1);
+    this.hpStatusHud.drawRect(-(this.pSprite.width/2+5), (this.pSprite.height/2-4), Math.max(0,Math.floor((this.player.currentHP/this.player.maxHP)*40)), 5);
+    this.hpStatusHud.endFill();
   }
 
   handleInput() {
-    if (this.inputState.buttons.LEFT == true) {
-      this.player.direction.x = -1;
-      this.inputState.buttons.LEFT = false;
-      this.player.isActing = true;
-      this.gameState.shouldUpdate = true;
-    } else if (this.inputState.buttons.RIGHT == true) {
-      this.player.direction.x = 1;
-      this.inputState.buttons.RIGHT = false;
-      this.player.isActing = true;
-      this.gameState.shouldUpdate = true;
-    }
-
-    if (this.inputState.buttons.DOWN == true) {
-      this.player.direction.y = 1;
-      this.inputState.buttons.DOWN = false;
-      this.player.isActing = true;
-      this.gameState.shouldUpdate = true;
-    } else if (this.inputState.buttons.UP == true) {
-      this.player.direction.y = -1;
-      this.inputState.buttons.UP = false;
-      this.player.isActing = true;
-      this.gameState.shouldUpdate = true;
-    }
-
-    if (this.inputState.buttons.SPACE) {
+    if (this.inputState.buttons.SPACE) { // some nice debug info
       console.log(this.player.tilePos);
+      this.player.currentHP -=10;
+      console.log("width", this.player.width);
       console.log("numCols", this.level.numCols);
       console.log("index",this.player.tilePos[1]*this.level.numCols + this.player.tilePos[0]);
       console.log(this.level.tileAtColRow(this.player.tilePos[0], this.player.tilePos[1]));
@@ -211,17 +193,8 @@ class Game {
 
   loop() {
     this.currentTime = new Date();
-    this.handleInput();
-    // should only update after a move
-    // if (this.currentTime - this.prevTime >= 150) {
-    if (this.gameState.shouldUpdate) {
-      console.log("update");
-      this.update();
-      this.prevTime = this.currentTime;
-      this.gameState.shouldUpdate = false;
-    }
-    // }
-    // Time.sleep(500);
+    this.handleInput(); // only used for debug and global handlers now
+    this.update();
     this.render();
     requestAnimationFrame(() => this.loop());
   }
@@ -241,6 +214,11 @@ class Enemy {
     this.position = new PIXI.Point(10,10);
     this.direction = {x: 0, y: 0};
     this.directionMap = {UP: [0,-1], RIGHT: [1,0], DOWN: [0,1], LEFT: [-1,0]};
+    this.maxHP = 100;
+    this.currentHP = 100;
+  }
+  updateAI() {
+    return this.randomMove();
   }
   moveTo(col, row, tileSize) { // tilePos to PIXI.Point
     this.tilePos[0] = col, this.tilePos[1] = row;
@@ -253,11 +231,17 @@ class Enemy {
 }
 
 class Player {
-  constructor(col, row) {
+  constructor(col, row, input) {
     this.tilePos = [col, row];
     this.position = new PIXI.Point(10,10);
     this.direction = {x: 0, y: 0};
     this.isActing = false;
+    this._input = input;
+    this.maxHP = 100;
+    this.currentHP = 100;
+  }
+  update() {
+    this._input.update(this);
   }
   moveTo(col, row, tileSize) { // tilePos to PIXI.Point
     this.tilePos[0] = col, this.tilePos[1] = row;
@@ -286,6 +270,23 @@ class Level {
     this.tiles[6] = 1;
     this.tiles[21] = 1;
     console.log("moo gen");
+  }
+    // let [col, row] = this.player.tilePos;
+    // let didMove = false;
+    // if (this.player.direction.x != 0) {
+    //   let moveToTile = this.level.tileAtColRow(col+this.player.direction.x, row);
+    //   if (moveToTile != undefined && moveToTile != 1) {
+    //     this.player.moveTo(col+this.player.direction.x, row, this.level.tileSize);
+    //     didMove = true;
+    //   }
+    // }
+  canMove(col, row) {
+    let attemptedMoveTile = this.tileAtColRow(col, row);
+    if (attemptedMoveTile != undefined && attemptedMoveTile !=1) {
+      return true;
+    } else {
+      return false;
+    }
   }
   tileAtColRow(col, row) {
     if (col > this.numCols-1 || col < 0) {

@@ -5,9 +5,12 @@ var _slicedToArray = (function () { function sliceIterator(arr, i) { var _arr = 
 
 var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
 
+function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) arr2[i] = arr[i]; return arr2; } else { return Array.from(arr); } }
+
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 console.log("Cool code!");
+var InputComponent = require('./input_component.js');
 
 function lerp(v0, v1, t) {
   return (1 - t) * v0 + t * v1;
@@ -65,7 +68,7 @@ var Game = (function () {
     // setup for enemeies
     this.enemies = [];
     this.enemySprites = [];
-    for (var i = 0; i < 9; i++) {
+    for (var i = 0; i < 1; i++) {
       var enemySprite = new PIXI.Sprite.fromImage('./images/duck_front.png');
       var enemy = new Enemy(0 + getRandomInt(0, this.level.numCols - 1 - i), 4 + i);
       enemySprite.anchor.set(0.5, 0.5);
@@ -91,10 +94,10 @@ var Game = (function () {
     // }
 
     // setup for player
-    var sprite = new PIXI.Sprite.fromImage('./images/moorawr.png');
-    this.player = new Player(3, 3);
-    sprite.anchor.set(0.5, 0.5);
-    sprite.position = this.player.position;
+    this.pSprite = new PIXI.Sprite.fromImage('./images/moorawr.png');
+    this.player = new Player(3, 3, new InputComponent(this.inputState));
+    this.pSprite.anchor.set(0.5, 0.5);
+    this.pSprite.position = this.player.position;
 
     // basic starting point, does a check to make sure it will work
     var startTile = [3, 3];
@@ -105,9 +108,10 @@ var Game = (function () {
       throw new RangeError("Player outside of valid range");
     }
 
+    this.hpStatusHud = new PIXI.Graphics();
     // and then we add grid, sprite, bg, and hud to the stage
     this.stage.addChild(this.grid);
-    this.stage.addChild(sprite);
+    this.stage.addChild(this.pSprite);
     var _iteratorNormalCompletion = true;
     var _didIteratorError = false;
     var _iteratorError = undefined;
@@ -135,38 +139,34 @@ var Game = (function () {
 
     this.stage.addChildAt(tilingSprite, 0); // bottom position
     this.stage.addChild(this.bottomHud);
+    this.pSprite.addChild(this.hpStatusHud);
   }
 
   _createClass(Game, [{
     key: "update",
     value: function update() {
+      this.player.update();
+      if (!this.player.isActing) {
+        return;
+      }
       // needed for move checks
+      var didMove = false;
 
       var _player$tilePos = _slicedToArray(this.player.tilePos, 2);
 
       var col = _player$tilePos[0];
       var row = _player$tilePos[1];
 
-      var didMove = false;
-      if (this.player.direction.x != 0) {
-        var moveToTile = this.level.tileAtColRow(col + this.player.direction.x, row);
-        if (moveToTile != undefined && moveToTile != 1) {
-          console.log("Moving!", moveToTile);
-          didMove = true;
-          this.player.moveTo(col + this.player.direction.x, row, this.level.tileSize);
-        }
-      }
-      if (this.player.direction.y != 0) {
-        var moveToTile = this.level.tileAtColRow(col, row + this.player.direction.y);
-        if (moveToTile != undefined && moveToTile != 1) {
-          console.log("Moving!", moveToTile);
-          didMove = true;
-          this.player.moveTo(col, row + this.player.direction.y, this.level.tileSize);
-        }
+      col += this.player.direction.x;
+      row += this.player.direction.y;
+
+      if (this.level.canMove(col, row)) {
+        this.player.moveTo(col, row, this.level.tileSize);
+        didMove = true;
       }
 
+      // for now, we'll only move enemies when player moved
       if (didMove) {
-        // for now, we'll only move enemies when player moved
         var _iteratorNormalCompletion2 = true;
         var _didIteratorError2 = false;
         var _iteratorError2 = undefined;
@@ -178,13 +178,12 @@ var Game = (function () {
             var findMove = true,
                 attempt = 0;
             do {
-              var randomTile = enemy.randomMove();
-              console.log("finding move", randomTile);
-              var moveToTile = this.level.tileAtColRow(randomTile[0], randomTile[1]);
-              if (moveToTile != undefined && moveToTile != 1) {
-                console.log("Moving enemy!", moveToTile);
+              var _level;
+
+              var randomTilePos = enemy.updateAI();
+              if ((_level = this.level).canMove.apply(_level, _toConsumableArray(randomTilePos))) {
+                enemy.moveTo(randomTilePos[0], randomTilePos[1], this.level.tileSize);
                 findMove = false;
-                enemy.moveTo(randomTile[0], randomTile[1], this.level.tileSize);
               }
               attempt++;
             } while (findMove && attempt < 4);
@@ -209,6 +208,7 @@ var Game = (function () {
       }
 
       // safe to always set this back
+      this.player.isActing = false;
       this.player.direction.x = 0;
       this.player.direction.y = 0;
     }
@@ -269,36 +269,23 @@ var Game = (function () {
         this.grid.moveTo(0, i * this.level.tileSize);
         this.grid.lineTo(this.level.width, i * this.level.tileSize);
       }
+      // draw player hp
+      this.hpStatusHud.clear();
+      this.hpStatusHud.beginFill(0x000000, 1);
+      this.hpStatusHud.drawRect(-(this.pSprite.width / 2 + 5), this.pSprite.height / 2 - 4, 40, 5);
+      this.hpStatusHud.endFill();
+      this.hpStatusHud.beginFill(0x22CC22, 1);
+      this.hpStatusHud.drawRect(-(this.pSprite.width / 2 + 5), this.pSprite.height / 2 - 4, Math.max(0, Math.floor(this.player.currentHP / this.player.maxHP * 40)), 5);
+      this.hpStatusHud.endFill();
     }
   }, {
     key: "handleInput",
     value: function handleInput() {
-      if (this.inputState.buttons.LEFT == true) {
-        this.player.direction.x = -1;
-        this.inputState.buttons.LEFT = false;
-        this.player.isActing = true;
-        this.gameState.shouldUpdate = true;
-      } else if (this.inputState.buttons.RIGHT == true) {
-        this.player.direction.x = 1;
-        this.inputState.buttons.RIGHT = false;
-        this.player.isActing = true;
-        this.gameState.shouldUpdate = true;
-      }
-
-      if (this.inputState.buttons.DOWN == true) {
-        this.player.direction.y = 1;
-        this.inputState.buttons.DOWN = false;
-        this.player.isActing = true;
-        this.gameState.shouldUpdate = true;
-      } else if (this.inputState.buttons.UP == true) {
-        this.player.direction.y = -1;
-        this.inputState.buttons.UP = false;
-        this.player.isActing = true;
-        this.gameState.shouldUpdate = true;
-      }
-
       if (this.inputState.buttons.SPACE) {
+        // some nice debug info
         console.log(this.player.tilePos);
+        this.player.currentHP -= 10;
+        console.log("width", this.player.width);
         console.log("numCols", this.level.numCols);
         console.log("index", this.player.tilePos[1] * this.level.numCols + this.player.tilePos[0]);
         console.log(this.level.tileAtColRow(this.player.tilePos[0], this.player.tilePos[1]));
@@ -310,17 +297,8 @@ var Game = (function () {
       var _this = this;
 
       this.currentTime = new Date();
-      this.handleInput();
-      // should only update after a move
-      // if (this.currentTime - this.prevTime >= 150) {
-      if (this.gameState.shouldUpdate) {
-        console.log("update");
-        this.update();
-        this.prevTime = this.currentTime;
-        this.gameState.shouldUpdate = false;
-      }
-      // }
-      // Time.sleep(500);
+      this.handleInput(); // only used for debug and global handlers now
+      this.update();
       this.render();
       requestAnimationFrame(function () {
         return _this.loop();
@@ -348,9 +326,16 @@ var Enemy = (function () {
     this.position = new PIXI.Point(10, 10);
     this.direction = { x: 0, y: 0 };
     this.directionMap = { UP: [0, -1], RIGHT: [1, 0], DOWN: [0, 1], LEFT: [-1, 0] };
+    this.maxHP = 100;
+    this.currentHP = 100;
   }
 
   _createClass(Enemy, [{
+    key: "updateAI",
+    value: function updateAI() {
+      return this.randomMove();
+    }
+  }, {
     key: "moveTo",
     value: function moveTo(col, row, tileSize) {
       // tilePos to PIXI.Point
@@ -369,16 +354,24 @@ var Enemy = (function () {
 })();
 
 var Player = (function () {
-  function Player(col, row) {
+  function Player(col, row, input) {
     _classCallCheck(this, Player);
 
     this.tilePos = [col, row];
     this.position = new PIXI.Point(10, 10);
     this.direction = { x: 0, y: 0 };
     this.isActing = false;
+    this._input = input;
+    this.maxHP = 100;
+    this.currentHP = 100;
   }
 
   _createClass(Player, [{
+    key: "update",
+    value: function update() {
+      this._input.update(this);
+    }
+  }, {
     key: "moveTo",
     value: function moveTo(col, row, tileSize) {
       // tilePos to PIXI.Point
@@ -416,6 +409,26 @@ var Level = (function () {
       this.tiles[6] = 1;
       this.tiles[21] = 1;
       console.log("moo gen");
+    }
+
+    // let [col, row] = this.player.tilePos;
+    // let didMove = false;
+    // if (this.player.direction.x != 0) {
+    //   let moveToTile = this.level.tileAtColRow(col+this.player.direction.x, row);
+    //   if (moveToTile != undefined && moveToTile != 1) {
+    //     this.player.moveTo(col+this.player.direction.x, row, this.level.tileSize);
+    //     didMove = true;
+    //   }
+    // }
+  }, {
+    key: "canMove",
+    value: function canMove(col, row) {
+      var attemptedMoveTile = this.tileAtColRow(col, row);
+      if (attemptedMoveTile != undefined && attemptedMoveTile != 1) {
+        return true;
+      } else {
+        return false;
+      }
     }
   }, {
     key: "tileAtColRow",
@@ -471,5 +484,49 @@ window.addEventListener('keydown', function (e) {
     game.inputState.buttons[key] = true;
   }
 });
+
+},{"./input_component.js":2}],2:[function(require,module,exports){
+"use strict";
+
+var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var InputComponent = (function () {
+  function InputComponent(inputState) {
+    _classCallCheck(this, InputComponent);
+
+    this.inputState = inputState;
+  }
+
+  _createClass(InputComponent, [{
+    key: "update",
+    value: function update(entity) {
+      if (this.inputState.buttons.LEFT == true) {
+        entity.direction.x = -1;
+        this.inputState.buttons.LEFT = false;
+        entity.isActing = true;
+      } else if (this.inputState.buttons.RIGHT == true) {
+        entity.direction.x = 1;
+        this.inputState.buttons.RIGHT = false;
+        entity.isActing = true;
+      }
+
+      if (this.inputState.buttons.DOWN == true) {
+        entity.direction.y = 1;
+        this.inputState.buttons.DOWN = false;
+        entity.isActing = true;
+      } else if (this.inputState.buttons.UP == true) {
+        entity.direction.y = -1;
+        this.inputState.buttons.UP = false;
+        entity.isActing = true;
+      }
+    }
+  }]);
+
+  return InputComponent;
+})();
+
+module.exports = InputComponent;
 
 },{}]},{},[1])
