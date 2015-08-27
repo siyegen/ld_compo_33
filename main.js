@@ -1,16 +1,17 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-"use strict";
+'use strict';
 
-var _slicedToArray = (function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; })();
+var _slicedToArray = (function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i['return']) _i['return'](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError('Invalid attempt to destructure non-iterable instance'); } }; })();
 
-var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
+var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ('value' in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
 
-function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) arr2[i] = arr[i]; return arr2; } else { return Array.from(arr); } }
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } }
 
 console.log("Cool code!");
-var InputComponent = require('./input_component.js');
+var InputComponent = require('./input_component.js').InputComponent;
+var RandomInputComponent = require('./input_component.js').RandomInputComponent;
+console.log(InputComponent);
+console.log(RandomInputComponent);
 
 function lerp(v0, v1, t) {
   return (1 - t) * v0 + t * v1;
@@ -38,9 +39,6 @@ var Game = (function () {
         LEFT: false
       }
     };
-
-    // used to control whether to udpate
-    this.gameState = { shouldUpdate: false };
 
     // not used atm, was used for control limiting
     this.currentTime = new Date();
@@ -70,7 +68,7 @@ var Game = (function () {
     this.enemySprites = [];
     for (var i = 0; i < 1; i++) {
       var enemySprite = new PIXI.Sprite.fromImage('./images/duck_front.png');
-      var enemy = new Enemy(0 + getRandomInt(0, this.level.numCols - 1 - i), 4 + i);
+      var enemy = new GameEntity(0 + getRandomInt(0, this.level.numCols - 1 - i), 4 + i, new RandomInputComponent(null));
       enemySprite.anchor.set(0.5, 0.5);
       enemySprite.position = enemy.position;
       this.enemies.push(enemy);
@@ -85,17 +83,9 @@ var Game = (function () {
       }
     };
 
-    // let enemyStartTile = this.enemy.tilePos;
-    // let enemyTile = this.level.tileAtColRow(enemyStartTile[0], enemyStartTile[1]);
-    // if (enemyTile != undefined && enemyTile == 0) {
-    //   this.enemy.moveTo(enemyStartTile[0], enemyStartTile[1], this.level.tileSize);
-    // } else {
-    //   throw new RangeError("Enemy outside of valid range");
-    // }
-
     // setup for player
     this.pSprite = new PIXI.Sprite.fromImage('./images/moorawr.png');
-    this.player = new Player(3, 3, new InputComponent(this.inputState));
+    this.player = new GameEntity(3, 3, new InputComponent(this.inputState));
     this.pSprite.anchor.set(0.5, 0.5);
     this.pSprite.position = this.player.position;
 
@@ -127,8 +117,8 @@ var Game = (function () {
       _iteratorError = err;
     } finally {
       try {
-        if (!_iteratorNormalCompletion && _iterator["return"]) {
-          _iterator["return"]();
+        if (!_iteratorNormalCompletion && _iterator['return']) {
+          _iterator['return']();
         }
       } finally {
         if (_didIteratorError) {
@@ -143,29 +133,16 @@ var Game = (function () {
   }
 
   _createClass(Game, [{
-    key: "update",
+    key: 'update',
     value: function update() {
       this.player.update();
       if (!this.player.isActing) {
         return;
       }
-      // needed for move checks
-      var didMove = false;
-
-      var _player$tilePos = _slicedToArray(this.player.tilePos, 2);
-
-      var col = _player$tilePos[0];
-      var row = _player$tilePos[1];
-
-      col += this.player.direction.x;
-      row += this.player.direction.y;
-
-      if (this.level.canMove(col, row)) {
-        this.player.moveTo(col, row, this.level.tileSize);
-        didMove = true;
-      }
+      var didMove = this.level.update(this.player);
 
       // for now, we'll only move enemies when player moved
+      // turn manager?
       if (didMove) {
         var _iteratorNormalCompletion2 = true;
         var _didIteratorError2 = false;
@@ -175,26 +152,22 @@ var Game = (function () {
           for (var _iterator2 = this.enemies[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
             var enemy = _step2.value;
 
-            var findMove = true,
+            var didEnemyMove = false,
                 attempt = 0;
             do {
-              var _level;
-
-              var randomTilePos = enemy.updateAI();
-              if ((_level = this.level).canMove.apply(_level, _toConsumableArray(randomTilePos))) {
-                enemy.moveTo(randomTilePos[0], randomTilePos[1], this.level.tileSize);
-                findMove = false;
-              }
+              enemy.update();
+              didEnemyMove = this.level.update(enemy);
               attempt++;
-            } while (findMove && attempt < 4);
+            } while (!didEnemyMove && attempt < 4);
+            enemy.direction.x = 0, enemy.direction.y = 0;
           }
         } catch (err) {
           _didIteratorError2 = true;
           _iteratorError2 = err;
         } finally {
           try {
-            if (!_iteratorNormalCompletion2 && _iterator2["return"]) {
-              _iterator2["return"]();
+            if (!_iteratorNormalCompletion2 && _iterator2['return']) {
+              _iterator2['return']();
             }
           } finally {
             if (_didIteratorError2) {
@@ -213,7 +186,7 @@ var Game = (function () {
       this.player.direction.y = 0;
     }
   }, {
-    key: "render",
+    key: 'render',
     value: function render() {
       this.renderer.render(this.stage);
       this.grid.clear();
@@ -248,8 +221,8 @@ var Game = (function () {
         _iteratorError3 = err;
       } finally {
         try {
-          if (!_iteratorNormalCompletion3 && _iterator3["return"]) {
-            _iterator3["return"]();
+          if (!_iteratorNormalCompletion3 && _iterator3['return']) {
+            _iterator3['return']();
           }
         } finally {
           if (_didIteratorError3) {
@@ -279,7 +252,7 @@ var Game = (function () {
       this.hpStatusHud.endFill();
     }
   }, {
-    key: "handleInput",
+    key: 'handleInput',
     value: function handleInput() {
       if (this.inputState.buttons.SPACE) {
         // some nice debug info
@@ -292,7 +265,7 @@ var Game = (function () {
       }
     }
   }, {
-    key: "loop",
+    key: 'loop',
     value: function loop() {
       var _this = this;
 
@@ -305,7 +278,7 @@ var Game = (function () {
       });
     }
   }, {
-    key: "start",
+    key: 'start',
     value: function start() {
       console.log("Start game");
       document.body.appendChild(this.renderer.view);
@@ -316,63 +289,26 @@ var Game = (function () {
   return Game;
 })();
 
-var MOVES = ["UP", "RIGHT", "DOWN", "LEFT"];
-
-var Enemy = (function () {
-  function Enemy(col, row) {
-    _classCallCheck(this, Enemy);
+var GameEntity = (function () {
+  function GameEntity(col, row, input) {
+    _classCallCheck(this, GameEntity);
 
     this.tilePos = [col, row];
     this.position = new PIXI.Point(10, 10);
     this.direction = { x: 0, y: 0 };
-    this.directionMap = { UP: [0, -1], RIGHT: [1, 0], DOWN: [0, 1], LEFT: [-1, 0] };
     this.maxHP = 100;
     this.currentHP = 100;
-  }
-
-  _createClass(Enemy, [{
-    key: "updateAI",
-    value: function updateAI() {
-      return this.randomMove();
-    }
-  }, {
-    key: "moveTo",
-    value: function moveTo(col, row, tileSize) {
-      // tilePos to PIXI.Point
-      this.tilePos[0] = col, this.tilePos[1] = row;
-      this.position.set(col * tileSize + tileSize / 2, row * tileSize + tileSize / 2);
-    }
-  }, {
-    key: "randomMove",
-    value: function randomMove() {
-      var direction = this.directionMap[MOVES[getRandomInt(0, 4)]]; // 0 up, 1 right, 2 down, 3 left
-      return [this.tilePos[0] + direction[0], this.tilePos[1] + direction[1]];
-    }
-  }]);
-
-  return Enemy;
-})();
-
-var Player = (function () {
-  function Player(col, row, input) {
-    _classCallCheck(this, Player);
-
-    this.tilePos = [col, row];
-    this.position = new PIXI.Point(10, 10);
-    this.direction = { x: 0, y: 0 };
-    this.isActing = false;
     this._input = input;
-    this.maxHP = 100;
-    this.currentHP = 100;
+    this.isActing = false;
   }
 
-  _createClass(Player, [{
-    key: "update",
+  _createClass(GameEntity, [{
+    key: 'update',
     value: function update() {
-      this._input.update(this);
+      return this._input.update(this);
     }
   }, {
-    key: "moveTo",
+    key: 'moveTo',
     value: function moveTo(col, row, tileSize) {
       // tilePos to PIXI.Point
       this.tilePos[0] = col, this.tilePos[1] = row;
@@ -380,7 +316,7 @@ var Player = (function () {
     }
   }]);
 
-  return Player;
+  return GameEntity;
 })();
 
 var Level = (function () {
@@ -399,7 +335,7 @@ var Level = (function () {
   }
 
   _createClass(Level, [{
-    key: "generate",
+    key: 'generate',
     value: function generate() {
       var number = this.numCols * this.numRows;
       for (var i = 0; i < number; i++) {
@@ -410,18 +346,26 @@ var Level = (function () {
       this.tiles[21] = 1;
       console.log("moo gen");
     }
-
-    // let [col, row] = this.player.tilePos;
-    // let didMove = false;
-    // if (this.player.direction.x != 0) {
-    //   let moveToTile = this.level.tileAtColRow(col+this.player.direction.x, row);
-    //   if (moveToTile != undefined && moveToTile != 1) {
-    //     this.player.moveTo(col+this.player.direction.x, row, this.level.tileSize);
-    //     didMove = true;
-    //   }
-    // }
   }, {
-    key: "canMove",
+    key: 'update',
+    value: function update(entity) {
+      var _entity$tilePos = _slicedToArray(entity.tilePos, 2);
+
+      var col = _entity$tilePos[0];
+      var row = _entity$tilePos[1];
+
+      col += entity.direction.x;
+      row += entity.direction.y;
+
+      if (this.canMove(col, row)) {
+        entity.moveTo(col, row, this.tileSize);
+        return true;
+      } else {
+        return false;
+      }
+    }
+  }, {
+    key: 'canMove',
     value: function canMove(col, row) {
       var attemptedMoveTile = this.tileAtColRow(col, row);
       if (attemptedMoveTile != undefined && attemptedMoveTile != 1) {
@@ -431,7 +375,7 @@ var Level = (function () {
       }
     }
   }, {
-    key: "tileAtColRow",
+    key: 'tileAtColRow',
     value: function tileAtColRow(col, row) {
       if (col > this.numCols - 1 || col < 0) {
         return undefined;
@@ -439,7 +383,7 @@ var Level = (function () {
       return this.tiles[row * this.numCols + col];
     }
   }, {
-    key: "idxToTileCoord",
+    key: 'idxToTileCoord',
     value: function idxToTileCoord(index) {
       return [index % this.numCols, Math.trunc(index / this.numCols)];
     }
@@ -527,6 +471,37 @@ var InputComponent = (function () {
   return InputComponent;
 })();
 
-module.exports = InputComponent;
+var MOVES = ["UP", "RIGHT", "DOWN", "LEFT"];
+
+var RandomInputComponent = (function () {
+  function RandomInputComponent(inputState) {
+    _classCallCheck(this, RandomInputComponent);
+
+    this.inputState = inputState;
+    this.directionMap = { UP: [0, -1], RIGHT: [1, 0], DOWN: [0, 1], LEFT: [-1, 0] };
+  }
+
+  _createClass(RandomInputComponent, [{
+    key: "update",
+    value: function update(entity) {
+      var direction = this.directionMap[MOVES[this._getRandomInt(0, 4)]]; // 0 up, 1 right, 2 down, 3 left
+      console.log("direction", direction);
+      entity.direction.x += direction[0];
+      entity.direction.y += direction[1];
+    }
+  }, {
+    key: "_getRandomInt",
+    value: function _getRandomInt(min, max) {
+      return Math.floor(Math.random() * (max - min)) + min;
+    }
+  }]);
+
+  return RandomInputComponent;
+})();
+
+module.exports = {
+  InputComponent: InputComponent,
+  RandomInputComponent: RandomInputComponent
+};
 
 },{}]},{},[1])
