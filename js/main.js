@@ -29,6 +29,10 @@ class Game {
       },
     };
 
+    this.gameState = {
+      gameOver: false,
+    }
+    this.gameOverText = new PIXI.Text("Game Over! CTRL+R to restart",{font : '38px Arial', fill : 0xdd3863, align : 'center'})
     // not used atm, was used for control limiting
     this.currentTime = new Date();
     this.prevTime = new Date();
@@ -92,6 +96,8 @@ class Game {
     this.stage.addChild(this.grid);
     this.stage.addChild(this.pSprite);
     for (let enemySprite of this.enemySprites) {
+      enemySprite._hpHud = new PIXI.Graphics();
+      enemySprite.addChild(enemySprite._hpHud);
       this.stage.addChild(enemySprite);
     }
     this.stage.addChildAt(tilingSprite, 0); // bottom position
@@ -101,6 +107,11 @@ class Game {
 
   update() {
     this.player.update();
+    if (this.player.isDead()) {
+      this.gameState.gameOver = true;
+      this.stage.addChild(this.gameOverText);
+      return;
+    }
     if (!this.player.isActing) {
       return;
     }
@@ -116,6 +127,7 @@ class Game {
           didEnemyMove = this.level.update(enemy);
           attempt++;
         } while(!didEnemyMove && attempt < 4)
+        enemy.updateAttack();
         enemy.direction.x = 0, enemy.direction.y = 0;
       }
       this.turn++;
@@ -160,6 +172,19 @@ class Game {
     this.hpStatusHud.beginFill(0x22CC22, 1);
     this.hpStatusHud.drawRect(-(this.pSprite.width/2+5), (this.pSprite.height/2-4), Math.max(0,Math.floor((this.player.currentHP/this.player.maxHP)*40)), 5);
     this.hpStatusHud.endFill();
+    // draw enemy hp
+    for (let enemySprite of this.enemySprites) {
+      enemySprite._hpHud.clear();
+      enemySprite._hpHud.beginFill(0x000000, 1);
+      enemySprite._hpHud.drawRect(-(enemySprite.width/2+5), (enemySprite.height/2-4), 40, 5);
+      enemySprite._hpHud.endFill();
+      enemySprite._hpHud.beginFill(0x22CC22, 1);
+      enemySprite._hpHud.drawRect(-(enemySprite.width/2+5), (enemySprite.height/2-4), Math.max(0,Math.floor((this.enemies[0].currentHP/this.enemies[0].maxHP)*40)), 5);
+      enemySprite._hpHud.endFill();
+    }
+    if (this.gameState.gameOver) {
+      return;
+    }
   }
 
   handleInput() {
@@ -176,7 +201,9 @@ class Game {
   loop() {
     this.currentTime = new Date();
     this.handleInput(); // only used for debug and global handlers now
-    this.update();
+    if (!this.gameState.gameOver) { // should render based on states
+      this.update();
+    }
     this.render();
     requestAnimationFrame(() => this.loop());
   }
@@ -188,6 +215,14 @@ class Game {
   }
 }
 
+class BasicEnemyAI {
+  constructor(entity) {
+    this._entity = entity;
+  }
+  update(level) {
+    let adjTiles = level.getAdjTiles(...this._entity.tilePos);
+  }
+}
 
 class GameEntity {
   constructor(col, row, input) {
@@ -198,6 +233,13 @@ class GameEntity {
     this.currentHP = 100;
     this._input = input;
     this.isActing = false;
+  }
+  isDead() {
+    if (this.currentHP <=0) {
+      return true;
+    } else {
+      return false;
+    }
   }
   update() {
     return this._input.update(this);
@@ -249,6 +291,9 @@ class Level {
     } else {
       return false;
     }
+  }
+  getAdjTiles(col, row) {
+    return [];
   }
   tileAtColRow(col, row) {
     if (col > this.numCols-1 || col < 0) {
