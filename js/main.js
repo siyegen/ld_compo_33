@@ -127,7 +127,7 @@ class Game {
           didEnemyMove = this.level.update(enemy);
           attempt++;
         } while(!didEnemyMove && attempt < 4)
-        enemy.updateAttack();
+        // enemy.updateAttack();
         enemy.direction.x = 0, enemy.direction.y = 0;
       }
       this.turn++;
