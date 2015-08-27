@@ -1,5 +1,8 @@
 console.log("Cool code!");
-let InputComponent = require('./input_component.js');
+let InputComponent = require('./input_component.js').InputComponent;
+let RandomInputComponent = require('./input_component.js').RandomInputComponent;
+console.log(InputComponent);
+console.log(RandomInputComponent);
 
 function lerp(v0, v1, t) {
   return (1-t)*v0 + t*v1;
@@ -25,9 +28,6 @@ class Game {
         LEFT: false,
       },
     };
-
-    // used to control whether to udpate
-    this.gameState = {shouldUpdate: false};
 
     // not used atm, was used for control limiting
     this.currentTime = new Date();
@@ -57,7 +57,7 @@ class Game {
     this.enemySprites = [];
     for (let i = 0; i < 1; i++) {
       let enemySprite = new PIXI.Sprite.fromImage('./images/duck_front.png');
-      let enemy = new Enemy(0+getRandomInt(0,this.level.numCols-1 -  i), 4+i);
+      let enemy = new GameEntity(0+getRandomInt(0,this.level.numCols-1 -  i), 4+i, new RandomInputComponent(null));
       enemySprite.anchor.set(0.5, 0.5);
       enemySprite.position = enemy.position;
       this.enemies.push(enemy);
@@ -72,17 +72,9 @@ class Game {
       }
     };
 
-    // let enemyStartTile = this.enemy.tilePos;
-    // let enemyTile = this.level.tileAtColRow(enemyStartTile[0], enemyStartTile[1]);
-    // if (enemyTile != undefined && enemyTile == 0) {
-    //   this.enemy.moveTo(enemyStartTile[0], enemyStartTile[1], this.level.tileSize);
-    // } else {
-    //   throw new RangeError("Enemy outside of valid range");
-    // }
-
     // setup for player
     this.pSprite = new PIXI.Sprite.fromImage('./images/moorawr.png');
-    this.player = new Player(3, 3, new InputComponent(this.inputState));
+    this.player = new GameEntity(3, 3, new InputComponent(this.inputState));
     this.pSprite.anchor.set(0.5, 0.5);
     this.pSprite.position = this.player.position;
 
@@ -112,29 +104,19 @@ class Game {
     if (!this.player.isActing) {
       return;
     }
-    // needed for move checks
-    let didMove = false;
-    let [col, row] = this.player.tilePos;
-    col += this.player.direction.x;
-    row += this.player.direction.y;
-
-    if (this.level.canMove(col, row)) {
-      this.player.moveTo(col, row, this.level.tileSize);
-      didMove = true;
-    }
+    let didMove = this.level.update(this.player);
 
     // for now, we'll only move enemies when player moved
+    // turn manager?
     if (didMove) {
       for(let enemy of this.enemies) {
-        let findMove = true, attempt = 0;
+        let didEnemyMove = false, attempt = 0;
         do {
-          let randomTilePos = enemy.updateAI();
-          if (this.level.canMove(...randomTilePos)) {
-            enemy.moveTo(randomTilePos[0], randomTilePos[1], this.level.tileSize);
-            findMove = false;
-          }
+          enemy.update();
+          didEnemyMove = this.level.update(enemy);
           attempt++;
-        } while(findMove && attempt < 4)
+        } while(!didEnemyMove && attempt < 4)
+        enemy.direction.x = 0, enemy.direction.y = 0;
       }
       this.turn++;
       this.turnText.text = "Turn " + this.turn;
@@ -206,42 +188,19 @@ class Game {
   }
 }
 
-const MOVES = ["UP","RIGHT","DOWN","LEFT"];
 
-class Enemy {
-  constructor(col, row) {
-    this.tilePos = [col, row];
-    this.position = new PIXI.Point(10,10);
-    this.direction = {x: 0, y: 0};
-    this.directionMap = {UP: [0,-1], RIGHT: [1,0], DOWN: [0,1], LEFT: [-1,0]};
-    this.maxHP = 100;
-    this.currentHP = 100;
-  }
-  updateAI() {
-    return this.randomMove();
-  }
-  moveTo(col, row, tileSize) { // tilePos to PIXI.Point
-    this.tilePos[0] = col, this.tilePos[1] = row;
-    this.position.set((col*tileSize)+tileSize/2,(row*tileSize)+tileSize/2);
-  }
-  randomMove() {
-    let direction = this.directionMap[MOVES[getRandomInt(0, 4)]]; // 0 up, 1 right, 2 down, 3 left
-    return [this.tilePos[0]+direction[0],this.tilePos[1]+direction[1]];
-  }
-}
-
-class Player {
+class GameEntity {
   constructor(col, row, input) {
     this.tilePos = [col, row];
     this.position = new PIXI.Point(10,10);
     this.direction = {x: 0, y: 0};
-    this.isActing = false;
-    this._input = input;
     this.maxHP = 100;
     this.currentHP = 100;
+    this._input = input;
+    this.isActing = false;
   }
   update() {
-    this._input.update(this);
+    return this._input.update(this);
   }
   moveTo(col, row, tileSize) { // tilePos to PIXI.Point
     this.tilePos[0] = col, this.tilePos[1] = row;
@@ -271,15 +230,18 @@ class Level {
     this.tiles[21] = 1;
     console.log("moo gen");
   }
-    // let [col, row] = this.player.tilePos;
-    // let didMove = false;
-    // if (this.player.direction.x != 0) {
-    //   let moveToTile = this.level.tileAtColRow(col+this.player.direction.x, row);
-    //   if (moveToTile != undefined && moveToTile != 1) {
-    //     this.player.moveTo(col+this.player.direction.x, row, this.level.tileSize);
-    //     didMove = true;
-    //   }
-    // }
+  update (entity) {
+    let [col, row] = entity.tilePos;
+    col += entity.direction.x;
+    row += entity.direction.y;
+
+    if (this.canMove(col, row)) {
+      entity.moveTo(col, row, this.tileSize);
+      return true;
+    } else {
+      return false;
+    }
+  }
   canMove(col, row) {
     let attemptedMoveTile = this.tileAtColRow(col, row);
     if (attemptedMoveTile != undefined && attemptedMoveTile !=1) {

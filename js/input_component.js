@@ -25,4 +25,26 @@ class InputComponent {
   }
 }
 
-module.exports = InputComponent;
+const MOVES = ["UP","RIGHT","DOWN","LEFT"];
+
+class RandomInputComponent {
+  constructor(inputState) {
+    this.inputState = inputState;
+    this.directionMap = {UP: [0,-1], RIGHT: [1,0], DOWN: [0,1], LEFT: [-1,0]};
+  }
+  update(entity) {
+    let direction = this.directionMap[MOVES[this._getRandomInt(0, 4)]]; // 0 up, 1 right, 2 down, 3 left
+    console.log("direction", direction);
+    entity.direction.x += direction[0];
+    entity.direction.y += direction[1];
+  }
+  _getRandomInt(min, max) {
+    return Math.floor(Math.random() * (max - min)) + min;
+  }
+}
+
+module.exports = {
+  InputComponent: InputComponent,
+  RandomInputComponent: RandomInputComponent,
+};
+
