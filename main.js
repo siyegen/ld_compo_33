@@ -5,6 +5,8 @@ var _slicedToArray = (function () { function sliceIterator(arr, i) { var _arr = 
 
 var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ('value' in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
 
+function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) arr2[i] = arr[i]; return arr2; } else { return Array.from(arr); } }
+
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } }
 
 console.log("Cool code!");
@@ -40,6 +42,10 @@ var Game = (function () {
       }
     };
 
+    this.gameState = {
+      gameOver: false
+    };
+    this.gameOverText = new PIXI.Text("Game Over! CTRL+R to restart", { font: '38px Arial', fill: 0xdd3863, align: 'center' });
     // not used atm, was used for control limiting
     this.currentTime = new Date();
     this.prevTime = new Date();
@@ -110,6 +116,8 @@ var Game = (function () {
       for (var _iterator = this.enemySprites[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
         var enemySprite = _step.value;
 
+        enemySprite._hpHud = new PIXI.Graphics();
+        enemySprite.addChild(enemySprite._hpHud);
         this.stage.addChild(enemySprite);
       }
     } catch (err) {
@@ -136,6 +144,11 @@ var Game = (function () {
     key: 'update',
     value: function update() {
       this.player.update();
+      if (this.player.isDead()) {
+        this.gameState.gameOver = true;
+        this.stage.addChild(this.gameOverText);
+        return;
+      }
       if (!this.player.isActing) {
         return;
       }
@@ -159,6 +172,7 @@ var Game = (function () {
               didEnemyMove = this.level.update(enemy);
               attempt++;
             } while (!didEnemyMove && attempt < 4);
+            enemy.updateAttack();
             enemy.direction.x = 0, enemy.direction.y = 0;
           }
         } catch (err) {
@@ -250,6 +264,41 @@ var Game = (function () {
       this.hpStatusHud.beginFill(0x22CC22, 1);
       this.hpStatusHud.drawRect(-(this.pSprite.width / 2 + 5), this.pSprite.height / 2 - 4, Math.max(0, Math.floor(this.player.currentHP / this.player.maxHP * 40)), 5);
       this.hpStatusHud.endFill();
+      // draw enemy hp
+      var _iteratorNormalCompletion4 = true;
+      var _didIteratorError4 = false;
+      var _iteratorError4 = undefined;
+
+      try {
+        for (var _iterator4 = this.enemySprites[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
+          var enemySprite = _step4.value;
+
+          enemySprite._hpHud.clear();
+          enemySprite._hpHud.beginFill(0x000000, 1);
+          enemySprite._hpHud.drawRect(-(enemySprite.width / 2 + 5), enemySprite.height / 2 - 4, 40, 5);
+          enemySprite._hpHud.endFill();
+          enemySprite._hpHud.beginFill(0x22CC22, 1);
+          enemySprite._hpHud.drawRect(-(enemySprite.width / 2 + 5), enemySprite.height / 2 - 4, Math.max(0, Math.floor(this.enemies[0].currentHP / this.enemies[0].maxHP * 40)), 5);
+          enemySprite._hpHud.endFill();
+        }
+      } catch (err) {
+        _didIteratorError4 = true;
+        _iteratorError4 = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion4 && _iterator4['return']) {
+            _iterator4['return']();
+          }
+        } finally {
+          if (_didIteratorError4) {
+            throw _iteratorError4;
+          }
+        }
+      }
+
+      if (this.gameState.gameOver) {
+        return;
+      }
     }
   }, {
     key: 'handleInput',
@@ -271,7 +320,10 @@ var Game = (function () {
 
       this.currentTime = new Date();
       this.handleInput(); // only used for debug and global handlers now
-      this.update();
+      if (!this.gameState.gameOver) {
+        // should render based on states
+        this.update();
+      }
       this.render();
       requestAnimationFrame(function () {
         return _this.loop();
@@ -289,6 +341,23 @@ var Game = (function () {
   return Game;
 })();
 
+var BasicEnemyAI = (function () {
+  function BasicEnemyAI(entity) {
+    _classCallCheck(this, BasicEnemyAI);
+
+    this._entity = entity;
+  }
+
+  _createClass(BasicEnemyAI, [{
+    key: 'update',
+    value: function update(level) {
+      var adjTiles = level.getAdjTiles.apply(level, _toConsumableArray(this._entity.tilePos));
+    }
+  }]);
+
+  return BasicEnemyAI;
+})();
+
 var GameEntity = (function () {
   function GameEntity(col, row, input) {
     _classCallCheck(this, GameEntity);
@@ -303,6 +372,15 @@ var GameEntity = (function () {
   }
 
   _createClass(GameEntity, [{
+    key: 'isDead',
+    value: function isDead() {
+      if (this.currentHP <= 0) {
+        return true;
+      } else {
+        return false;
+      }
+    }
+  }, {
     key: 'update',
     value: function update() {
       return this._input.update(this);
@@ -373,6 +451,11 @@ var Level = (function () {
       } else {
         return false;
       }
+    }
+  }, {
+    key: 'getAdjTiles',
+    value: function getAdjTiles(col, row) {
+      return [];
     }
   }, {
     key: 'tileAtColRow',
