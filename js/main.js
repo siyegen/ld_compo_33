@@ -1,8 +1,12 @@
 console.log("Cool code!");
 let InputComponent = require('./input_component.js').InputComponent;
 let RandomInputComponent = require('./input_component.js').RandomInputComponent;
+let TurnManager = require('./turn_manager.js');
 console.log(InputComponent);
 console.log(RandomInputComponent);
+console.log(TurnManager);
+
+const NUM_ENEMIES = 4;
 
 function lerp(v0, v1, t) {
   return (1-t)*v0 + t*v1;
@@ -29,17 +33,11 @@ class Game {
       },
     };
 
-    this.gameState = {
-      gameOver: false,
-    }
     this.gameOverText = new PIXI.Text("Game Over! CTRL+R to restart",{font : '38px Arial', fill : 0xdd3863, align : 'center'})
-    // not used atm, was used for control limiting
-    this.currentTime = new Date();
-    this.prevTime = new Date();
 
     // Turn tracking + simple hud setup
-    this.turn = 0;
-    this.turnText = new PIXI.Text("Turn " + this.turn,{font : '24px Arial', fill : 0x3f3863, align : 'center'})
+    this.turnManager = new TurnManager();
+    this.turnText = new PIXI.Text(this.turnManager.turnText(),{font : '24px Arial', fill : 0x3f3863, align : 'center'})
     this.bottomHud = new PIXI.Container();
     this.bottomHud.addChild(this.turnText);
     this.bottomHud.position = new PIXI.Point(this.width - (this.turnText.width+50), this.height - this.turnText.height);
@@ -56,88 +54,16 @@ class Game {
     let texture = new PIXI.Texture.fromImage('./images/test-sky.png');
     let tilingSprite = new PIXI.extras.TilingSprite(texture, this.width+300, this.height+300);
 
-    // setup for enemeies
-    this.enemies = [];
-    this.enemySprites = [];
-    for (let i = 0; i < 1; i++) {
-      let enemySprite = new PIXI.Sprite.fromImage('./images/duck_front.png');
-      let enemy = new GameEntity(0+getRandomInt(0,this.level.numCols-1 -  i), 4+i, new RandomInputComponent(null));
-      enemySprite.anchor.set(0.5, 0.5);
-      enemySprite.position = enemy.position;
-      this.enemies.push(enemy);
-      this.enemySprites.push(enemySprite);
-      // add enemy to the level!
-      let enemyStartTile = enemy.tilePos;
-      let enemyTile = this.level.tileAtColRow(enemyStartTile[0], enemyStartTile[1]);
-      if (enemyTile != undefined && enemyTile == 0) {
-        enemy.moveTo(enemyStartTile[0], enemyStartTile[1], this.level.tileSize);
-      } else {
-        throw new RangeError("Enemy outside of valid range");
-      }
-    };
-
-    // setup for player
-    this.pSprite = new PIXI.Sprite.fromImage('./images/moorawr.png');
-    this.player = new GameEntity(3, 3, new InputComponent(this.inputState));
-    this.pSprite.anchor.set(0.5, 0.5);
-    this.pSprite.position = this.player.position;
-
-    // basic starting point, does a check to make sure it will work
-    let startTile = [3,3];
-    let tile = this.level.tileAtColRow(startTile[0], startTile[1]);
-    if (tile != undefined && tile == 0) {
-      this.player.moveTo(startTile[0], startTile[1], this.level.tileSize);
-    } else {
-      throw new RangeError("Player outside of valid range");
-    }
-
-    this.hpStatusHud = new PIXI.Graphics();
-    // and then we add grid, sprite, bg, and hud to the stage
+    // and then we add grid and hud to the stage
     this.stage.addChild(this.grid);
-    this.stage.addChild(this.pSprite);
-    for (let enemySprite of this.enemySprites) {
-      enemySprite._hpHud = new PIXI.Graphics();
-      enemySprite.addChild(enemySprite._hpHud);
-      this.stage.addChild(enemySprite);
-    }
     this.stage.addChildAt(tilingSprite, 0); // bottom position
     this.stage.addChild(this.bottomHud);
-    this.pSprite.addChild(this.hpStatusHud);
   }
 
   update() {
-    this.player.update();
-    if (this.player.isDead()) {
-      this.gameState.gameOver = true;
-      this.stage.addChild(this.gameOverText);
-      return;
-    }
-    if (!this.player.isActing) {
-      return;
-    }
-    let didMove = this.level.update(this.player);
-
-    // for now, we'll only move enemies when player moved
-    // turn manager?
-    if (didMove) {
-      for(let enemy of this.enemies) {
-        let didEnemyMove = false, attempt = 0;
-        do {
-          enemy.update();
-          didEnemyMove = this.level.update(enemy);
-          attempt++;
-        } while(!didEnemyMove && attempt < 4)
-        // enemy.updateAttack();
-        enemy.direction.x = 0, enemy.direction.y = 0;
-      }
-      this.turn++;
-      this.turnText.text = "Turn " + this.turn;
-    }
-
-    // safe to always set this back
-    this.player.isActing = false;
-    this.player.direction.x = 0;
-    this.player.direction.y = 0;
+    // check state from turn manager
+    this.turnManager.update();
+    this.turnText.text = this.turnManager.turnText();
   }
 
   render() {
@@ -173,17 +99,14 @@ class Game {
     this.hpStatusHud.drawRect(-(this.pSprite.width/2+5), (this.pSprite.height/2-4), Math.max(0,Math.floor((this.player.currentHP/this.player.maxHP)*40)), 5);
     this.hpStatusHud.endFill();
     // draw enemy hp
-    for (let enemySprite of this.enemySprites) {
+    for (let [index, enemySprite] of this.enemySprites.entries()) {
       enemySprite._hpHud.clear();
       enemySprite._hpHud.beginFill(0x000000, 1);
       enemySprite._hpHud.drawRect(-(enemySprite.width/2+5), (enemySprite.height/2-4), 40, 5);
       enemySprite._hpHud.endFill();
       enemySprite._hpHud.beginFill(0x22CC22, 1);
-      enemySprite._hpHud.drawRect(-(enemySprite.width/2+5), (enemySprite.height/2-4), Math.max(0,Math.floor((this.enemies[0].currentHP/this.enemies[0].maxHP)*40)), 5);
+      enemySprite._hpHud.drawRect(-(enemySprite.width/2+5), (enemySprite.height/2-4), Math.max(0,Math.floor((this.enemies[index].currentHP/this.enemies[index].maxHP)*40)), 5);
       enemySprite._hpHud.endFill();
-    }
-    if (this.gameState.gameOver) {
-      return;
     }
   }
 
@@ -201,8 +124,11 @@ class Game {
   loop() {
     this.currentTime = new Date();
     this.handleInput(); // only used for debug and global handlers now
-    if (!this.gameState.gameOver) { // should render based on states
+    if (this.turnManager.gameState == "PLAYING") { // should render based on states
       this.update();
+    } else if(this.turnManager.gameState !== "GAMEOVER") {
+      this.stage.addChild(this.gameOverText);
+      this.turnManager.gameState = "GAMEOVER";
     }
     this.render();
     requestAnimationFrame(() => this.loop());
@@ -211,7 +137,50 @@ class Game {
   start () {
     console.log("Start game");
     document.body.appendChild(this.renderer.view);
+    // setup for player
+    this.pSprite = new PIXI.Sprite.fromImage('./images/moorawr.png');
+    this.player = new GameEntity(3, 3, new InputComponent(this.inputState), ENTITY_TYPES.PLAYER);
+    this.pSprite.anchor.set(0.5, 0.5);
+    this.pSprite.position = this.player.position;
+    this.beginEntity(this.player, this.player.tilePos);
+
+    // setup for enemeies
+    this.enemies = [];
+    this.enemySprites = [];
+    for (let i = 0; i < NUM_ENEMIES; i++) {
+      let enemy = new GameEntity(0+getRandomInt(0,this.level.numCols-1 -  i), 4+i, new RandomInputComponent(null));
+      let enemySprite = new PIXI.Sprite.fromImage('./images/duck_front.png');
+      enemySprite.anchor.set(0.5, 0.5);
+      enemySprite.position = enemy.position;
+      this.enemies.push(enemy);
+      this.enemySprites.push(enemySprite);
+      this.beginEntity(enemy, enemy.tilePos);
+    };
+
+    for (let enemySprite of this.enemySprites) {
+      enemySprite._hpHud = new PIXI.Graphics();
+      enemySprite.addChild(enemySprite._hpHud);
+      this.stage.addChild(enemySprite);
+    }
+    this.stage.addChild(this.pSprite);
+
+    // add hp status last
+    this.hpStatusHud = new PIXI.Graphics();
+    this.pSprite.addChild(this.hpStatusHud);
+
+    // game setup!
+    this.turnManager.setCurrentLevel(this.level);
+    this.turnManager.addPlayer(this.player);
+    this.turnManager.addEnemies(this.enemies);
     this.loop();
+  }
+  // this belongs on whatever owns level / game interactions
+  beginEntity(entity, startTile) {
+    if (this.level.canMove(startTile[0], startTile[1])) {
+      entity.moveTo(startTile[0], startTile[1], this.level.tileSize);
+    } else {
+      throw new RangeError("Player outside of valid range");
+    }
   }
 }
 
@@ -224,8 +193,10 @@ class BasicEnemyAI {
   }
 }
 
+const ENTITY_TYPES = {MOB:"MOB",PLAYER:"PLAYER"};
+
 class GameEntity {
-  constructor(col, row, input) {
+  constructor(col, row, input, type=ENTITY_TYPES.MOB) {
     this.tilePos = [col, row];
     this.position = new PIXI.Point(10,10);
     this.direction = {x: 0, y: 0};
@@ -233,6 +204,7 @@ class GameEntity {
     this.currentHP = 100;
     this._input = input;
     this.isActing = false;
+    this.type = type;
   }
   isDead() {
     if (this.currentHP <=0) {
