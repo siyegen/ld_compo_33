@@ -12,8 +12,12 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 console.log("Cool code!");
 var InputComponent = require('./input_component.js').InputComponent;
 var RandomInputComponent = require('./input_component.js').RandomInputComponent;
+var TurnManager = require('./turn_manager.js');
 console.log(InputComponent);
 console.log(RandomInputComponent);
+console.log(TurnManager);
+
+var NUM_ENEMIES = 4;
 
 function lerp(v0, v1, t) {
   return (1 - t) * v0 + t * v1;
@@ -42,17 +46,11 @@ var Game = (function () {
       }
     };
 
-    this.gameState = {
-      gameOver: false
-    };
     this.gameOverText = new PIXI.Text("Game Over! CTRL+R to restart", { font: '38px Arial', fill: 0xdd3863, align: 'center' });
-    // not used atm, was used for control limiting
-    this.currentTime = new Date();
-    this.prevTime = new Date();
 
     // Turn tracking + simple hud setup
-    this.turn = 0;
-    this.turnText = new PIXI.Text("Turn " + this.turn, { font: '24px Arial', fill: 0x3f3863, align: 'center' });
+    this.turnManager = new TurnManager();
+    this.turnText = new PIXI.Text(this.turnManager.turnText(), { font: '24px Arial', fill: 0x3f3863, align: 'center' });
     this.bottomHud = new PIXI.Container();
     this.bottomHud.addChild(this.turnText);
     this.bottomHud.position = new PIXI.Point(this.width - (this.turnText.width + 50), this.height - this.turnText.height);
@@ -69,135 +67,18 @@ var Game = (function () {
     var texture = new PIXI.Texture.fromImage('./images/test-sky.png');
     var tilingSprite = new PIXI.extras.TilingSprite(texture, this.width + 300, this.height + 300);
 
-    // setup for enemeies
-    this.enemies = [];
-    this.enemySprites = [];
-    for (var i = 0; i < 1; i++) {
-      var enemySprite = new PIXI.Sprite.fromImage('./images/duck_front.png');
-      var enemy = new GameEntity(0 + getRandomInt(0, this.level.numCols - 1 - i), 4 + i, new RandomInputComponent(null));
-      enemySprite.anchor.set(0.5, 0.5);
-      enemySprite.position = enemy.position;
-      this.enemies.push(enemy);
-      this.enemySprites.push(enemySprite);
-      // add enemy to the level!
-      var enemyStartTile = enemy.tilePos;
-      var enemyTile = this.level.tileAtColRow(enemyStartTile[0], enemyStartTile[1]);
-      if (enemyTile != undefined && enemyTile == 0) {
-        enemy.moveTo(enemyStartTile[0], enemyStartTile[1], this.level.tileSize);
-      } else {
-        throw new RangeError("Enemy outside of valid range");
-      }
-    };
-
-    // setup for player
-    this.pSprite = new PIXI.Sprite.fromImage('./images/moorawr.png');
-    this.player = new GameEntity(3, 3, new InputComponent(this.inputState));
-    this.pSprite.anchor.set(0.5, 0.5);
-    this.pSprite.position = this.player.position;
-
-    // basic starting point, does a check to make sure it will work
-    var startTile = [3, 3];
-    var tile = this.level.tileAtColRow(startTile[0], startTile[1]);
-    if (tile != undefined && tile == 0) {
-      this.player.moveTo(startTile[0], startTile[1], this.level.tileSize);
-    } else {
-      throw new RangeError("Player outside of valid range");
-    }
-
-    this.hpStatusHud = new PIXI.Graphics();
-    // and then we add grid, sprite, bg, and hud to the stage
+    // and then we add grid and hud to the stage
     this.stage.addChild(this.grid);
-    this.stage.addChild(this.pSprite);
-    var _iteratorNormalCompletion = true;
-    var _didIteratorError = false;
-    var _iteratorError = undefined;
-
-    try {
-      for (var _iterator = this.enemySprites[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-        var enemySprite = _step.value;
-
-        enemySprite._hpHud = new PIXI.Graphics();
-        enemySprite.addChild(enemySprite._hpHud);
-        this.stage.addChild(enemySprite);
-      }
-    } catch (err) {
-      _didIteratorError = true;
-      _iteratorError = err;
-    } finally {
-      try {
-        if (!_iteratorNormalCompletion && _iterator['return']) {
-          _iterator['return']();
-        }
-      } finally {
-        if (_didIteratorError) {
-          throw _iteratorError;
-        }
-      }
-    }
-
     this.stage.addChildAt(tilingSprite, 0); // bottom position
     this.stage.addChild(this.bottomHud);
-    this.pSprite.addChild(this.hpStatusHud);
   }
 
   _createClass(Game, [{
     key: 'update',
     value: function update() {
-      this.player.update();
-      if (this.player.isDead()) {
-        this.gameState.gameOver = true;
-        this.stage.addChild(this.gameOverText);
-        return;
-      }
-      if (!this.player.isActing) {
-        return;
-      }
-      var didMove = this.level.update(this.player);
-
-      // for now, we'll only move enemies when player moved
-      // turn manager?
-      if (didMove) {
-        var _iteratorNormalCompletion2 = true;
-        var _didIteratorError2 = false;
-        var _iteratorError2 = undefined;
-
-        try {
-          for (var _iterator2 = this.enemies[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
-            var enemy = _step2.value;
-
-            var didEnemyMove = false,
-                attempt = 0;
-            do {
-              enemy.update();
-              didEnemyMove = this.level.update(enemy);
-              attempt++;
-            } while (!didEnemyMove && attempt < 4);
-            // enemy.updateAttack();
-            enemy.direction.x = 0, enemy.direction.y = 0;
-          }
-        } catch (err) {
-          _didIteratorError2 = true;
-          _iteratorError2 = err;
-        } finally {
-          try {
-            if (!_iteratorNormalCompletion2 && _iterator2['return']) {
-              _iterator2['return']();
-            }
-          } finally {
-            if (_didIteratorError2) {
-              throw _iteratorError2;
-            }
-          }
-        }
-
-        this.turn++;
-        this.turnText.text = "Turn " + this.turn;
-      }
-
-      // safe to always set this back
-      this.player.isActing = false;
-      this.player.direction.x = 0;
-      this.player.direction.y = 0;
+      // check state from turn manager
+      this.turnManager.update();
+      this.turnText.text = this.turnManager.turnText();
     }
   }, {
     key: 'render',
@@ -208,16 +89,16 @@ var Game = (function () {
 
       // Drawing tiles
       this.grid.beginFill(0x998899, 1);
-      var _iteratorNormalCompletion3 = true;
-      var _didIteratorError3 = false;
-      var _iteratorError3 = undefined;
+      var _iteratorNormalCompletion = true;
+      var _didIteratorError = false;
+      var _iteratorError = undefined;
 
       try {
-        for (var _iterator3 = this.level.tiles.entries()[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
-          var _step3$value = _slicedToArray(_step3.value, 2);
+        for (var _iterator = this.level.tiles.entries()[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+          var _step$value = _slicedToArray(_step.value, 2);
 
-          var index = _step3$value[0];
-          var tile = _step3$value[1];
+          var index = _step$value[0];
+          var tile = _step$value[1];
 
           if (tile == 1) {
             var _level$idxToTileCoord = this.level.idxToTileCoord(index);
@@ -231,16 +112,16 @@ var Game = (function () {
           }
         }
       } catch (err) {
-        _didIteratorError3 = true;
-        _iteratorError3 = err;
+        _didIteratorError = true;
+        _iteratorError = err;
       } finally {
         try {
-          if (!_iteratorNormalCompletion3 && _iterator3['return']) {
-            _iterator3['return']();
+          if (!_iteratorNormalCompletion && _iterator['return']) {
+            _iterator['return']();
           }
         } finally {
-          if (_didIteratorError3) {
-            throw _iteratorError3;
+          if (_didIteratorError) {
+            throw _iteratorError;
           }
         }
       }
@@ -265,39 +146,38 @@ var Game = (function () {
       this.hpStatusHud.drawRect(-(this.pSprite.width / 2 + 5), this.pSprite.height / 2 - 4, Math.max(0, Math.floor(this.player.currentHP / this.player.maxHP * 40)), 5);
       this.hpStatusHud.endFill();
       // draw enemy hp
-      var _iteratorNormalCompletion4 = true;
-      var _didIteratorError4 = false;
-      var _iteratorError4 = undefined;
+      var _iteratorNormalCompletion2 = true;
+      var _didIteratorError2 = false;
+      var _iteratorError2 = undefined;
 
       try {
-        for (var _iterator4 = this.enemySprites[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
-          var enemySprite = _step4.value;
+        for (var _iterator2 = this.enemySprites.entries()[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+          var _step2$value = _slicedToArray(_step2.value, 2);
+
+          var index = _step2$value[0];
+          var enemySprite = _step2$value[1];
 
           enemySprite._hpHud.clear();
           enemySprite._hpHud.beginFill(0x000000, 1);
           enemySprite._hpHud.drawRect(-(enemySprite.width / 2 + 5), enemySprite.height / 2 - 4, 40, 5);
           enemySprite._hpHud.endFill();
           enemySprite._hpHud.beginFill(0x22CC22, 1);
-          enemySprite._hpHud.drawRect(-(enemySprite.width / 2 + 5), enemySprite.height / 2 - 4, Math.max(0, Math.floor(this.enemies[0].currentHP / this.enemies[0].maxHP * 40)), 5);
+          enemySprite._hpHud.drawRect(-(enemySprite.width / 2 + 5), enemySprite.height / 2 - 4, Math.max(0, Math.floor(this.enemies[index].currentHP / this.enemies[index].maxHP * 40)), 5);
           enemySprite._hpHud.endFill();
         }
       } catch (err) {
-        _didIteratorError4 = true;
-        _iteratorError4 = err;
+        _didIteratorError2 = true;
+        _iteratorError2 = err;
       } finally {
         try {
-          if (!_iteratorNormalCompletion4 && _iterator4['return']) {
-            _iterator4['return']();
+          if (!_iteratorNormalCompletion2 && _iterator2['return']) {
+            _iterator2['return']();
           }
         } finally {
-          if (_didIteratorError4) {
-            throw _iteratorError4;
+          if (_didIteratorError2) {
+            throw _iteratorError2;
           }
         }
-      }
-
-      if (this.gameState.gameOver) {
-        return;
       }
     }
   }, {
@@ -320,9 +200,12 @@ var Game = (function () {
 
       this.currentTime = new Date();
       this.handleInput(); // only used for debug and global handlers now
-      if (!this.gameState.gameOver) {
+      if (this.turnManager.gameState == "PLAYING") {
         // should render based on states
         this.update();
+      } else if (this.turnManager.gameState !== "GAMEOVER") {
+        this.stage.addChild(this.gameOverText);
+        this.turnManager.gameState = "GAMEOVER";
       }
       this.render();
       requestAnimationFrame(function () {
@@ -334,7 +217,75 @@ var Game = (function () {
     value: function start() {
       console.log("Start game");
       document.body.appendChild(this.renderer.view);
+      // setup for player
+      this.pSprite = new PIXI.Sprite.fromImage('./images/moorawr.png');
+      this.player = new GameEntity(3, 3, new InputComponent(this.inputState), ENTITY_TYPES.PLAYER);
+      this.pSprite.anchor.set(0.5, 0.5);
+      this.pSprite.position = this.player.position;
+      this.beginEntity(this.player, this.player.tilePos);
+
+      // setup for enemeies
+      this.enemies = [];
+      this.enemySprites = [];
+      for (var i = 0; i < NUM_ENEMIES; i++) {
+        var enemy = new GameEntity(0 + getRandomInt(0, this.level.numCols - 1 - i), 4 + i, new RandomInputComponent(null));
+        var enemySprite = new PIXI.Sprite.fromImage('./images/duck_front.png');
+        enemySprite.anchor.set(0.5, 0.5);
+        enemySprite.position = enemy.position;
+        this.enemies.push(enemy);
+        this.enemySprites.push(enemySprite);
+        this.beginEntity(enemy, enemy.tilePos);
+      };
+
+      var _iteratorNormalCompletion3 = true;
+      var _didIteratorError3 = false;
+      var _iteratorError3 = undefined;
+
+      try {
+        for (var _iterator3 = this.enemySprites[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+          var enemySprite = _step3.value;
+
+          enemySprite._hpHud = new PIXI.Graphics();
+          enemySprite.addChild(enemySprite._hpHud);
+          this.stage.addChild(enemySprite);
+        }
+      } catch (err) {
+        _didIteratorError3 = true;
+        _iteratorError3 = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion3 && _iterator3['return']) {
+            _iterator3['return']();
+          }
+        } finally {
+          if (_didIteratorError3) {
+            throw _iteratorError3;
+          }
+        }
+      }
+
+      this.stage.addChild(this.pSprite);
+
+      // add hp status last
+      this.hpStatusHud = new PIXI.Graphics();
+      this.pSprite.addChild(this.hpStatusHud);
+
+      // game setup!
+      this.turnManager.setCurrentLevel(this.level);
+      this.turnManager.addPlayer(this.player);
+      this.turnManager.addEnemies(this.enemies);
       this.loop();
+    }
+
+    // this belongs on whatever owns level / game interactions
+  }, {
+    key: 'beginEntity',
+    value: function beginEntity(entity, startTile) {
+      if (this.level.canMove(startTile[0], startTile[1])) {
+        entity.moveTo(startTile[0], startTile[1], this.level.tileSize);
+      } else {
+        throw new RangeError("Player outside of valid range");
+      }
     }
   }]);
 
@@ -358,8 +309,12 @@ var BasicEnemyAI = (function () {
   return BasicEnemyAI;
 })();
 
+var ENTITY_TYPES = { MOB: "MOB", PLAYER: "PLAYER" };
+
 var GameEntity = (function () {
   function GameEntity(col, row, input) {
+    var type = arguments.length <= 3 || arguments[3] === undefined ? ENTITY_TYPES.MOB : arguments[3];
+
     _classCallCheck(this, GameEntity);
 
     this.tilePos = [col, row];
@@ -369,6 +324,7 @@ var GameEntity = (function () {
     this.currentHP = 100;
     this._input = input;
     this.isActing = false;
+    this.type = type;
   }
 
   _createClass(GameEntity, [{
@@ -512,7 +468,7 @@ window.addEventListener('keydown', function (e) {
   }
 });
 
-},{"./input_component.js":2}],2:[function(require,module,exports){
+},{"./input_component.js":2,"./turn_manager.js":3}],2:[function(require,module,exports){
 "use strict";
 
 var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
@@ -586,5 +542,109 @@ module.exports = {
   InputComponent: InputComponent,
   RandomInputComponent: RandomInputComponent
 };
+
+},{}],3:[function(require,module,exports){
+"use strict";
+
+var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var TurnManager = (function () {
+  function TurnManager() {
+    _classCallCheck(this, TurnManager);
+
+    this.turn = 0;
+    this.increment = 1;
+    this.enemies = [];
+    this.gameState = "PLAYING";
+  }
+
+  _createClass(TurnManager, [{
+    key: "addPlayer",
+    value: function addPlayer(player) {
+      this.player = player;
+    }
+  }, {
+    key: "addEnemy",
+    value: function addEnemy(enemy) {
+      this.enemies.push(enemy);
+    }
+  }, {
+    key: "addEnemies",
+    value: function addEnemies(enemies) {
+      this.enemies = enemies;
+    }
+  }, {
+    key: "setCurrentLevel",
+    value: function setCurrentLevel(level) {
+      // track who is where on level, yeah?
+      this.level = level;
+    }
+  }, {
+    key: "update",
+    value: function update() {
+      this.player.update();
+      if (this.player.isDead()) {
+        this.gameState = "LOST";
+        return;
+      }
+      if (!this.player.isActing) {
+        return;
+      }
+      var didMove = this.level.update(this.player);
+
+      if (didMove) {
+        var _iteratorNormalCompletion = true;
+        var _didIteratorError = false;
+        var _iteratorError = undefined;
+
+        try {
+          for (var _iterator = this.enemies[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+            var enemy = _step.value;
+
+            var didEnemyMove = false,
+                attempt = 0;
+            do {
+              enemy.update();
+              didEnemyMove = this.level.update(enemy);
+              attempt++;
+            } while (!didEnemyMove && attempt < 4);
+            enemy.direction.x = 0, enemy.direction.y = 0;
+          }
+        } catch (err) {
+          _didIteratorError = true;
+          _iteratorError = err;
+        } finally {
+          try {
+            if (!_iteratorNormalCompletion && _iterator["return"]) {
+              _iterator["return"]();
+            }
+          } finally {
+            if (_didIteratorError) {
+              throw _iteratorError;
+            }
+          }
+        }
+
+        this.turn += this.increment;
+      }
+
+      // safe to always set this back
+      this.player.isActing = false;
+      this.player.direction.x = 0;
+      this.player.direction.y = 0;
+    }
+  }, {
+    key: "turnText",
+    value: function turnText() {
+      return "Turn " + this.turn;
+    }
+  }]);
+
+  return TurnManager;
+})();
+
+module.exports = TurnManager;
 
 },{}]},{},[1])
