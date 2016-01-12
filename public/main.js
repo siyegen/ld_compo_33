@@ -219,10 +219,18 @@ var Game = (function () {
       document.body.appendChild(this.renderer.view);
       // setup for player
       this.pSprite = new PIXI.Sprite.fromImage('./images/moorawr.png');
-      this.player = new GameEntity(3, 3, new InputComponent(this.inputState), ENTITY_TYPES.PLAYER);
+      this.player = new GameEntity(3, 3, null, ENTITY_TYPES.UNIT); // null should be NullInput for squad units
       this.pSprite.anchor.set(0.5, 0.5);
       this.pSprite.position = this.player.position;
-      this.beginEntity(this.player, this.player.tilePos);
+      // this.beginEntity(this.player, this.player.tilePos);
+      this.squad1Sprite = new PIXI.Sprite.fromImage('./images/moorawr.png');
+      this.squad1 = new GameEntity(2, 4, null, ENTITY_TYPES.UNIT);
+      this.squad1Sprite.anchor.set(0.5, 0.5);
+      this.squad1Sprite.position = this.squad1.position;
+      // this.beginEntity(this.squad1, this.squad1.tilePos);
+
+      this.playerSquad = new Squad(this.player, this.squad1, null, new InputComponent(this.inputState));
+      this.beginEntity(this.playerSquad, this.player.tilePos); // shouldn't use mainUnit tilePos
 
       // setup for enemeies
       this.enemies = [];
@@ -249,6 +257,7 @@ var Game = (function () {
           enemySprite.addChild(enemySprite._hpHud);
           this.stage.addChild(enemySprite);
         }
+        // This should happen on squad
       } catch (err) {
         _didIteratorError3 = true;
         _iteratorError3 = err;
@@ -265,6 +274,7 @@ var Game = (function () {
       }
 
       this.stage.addChild(this.pSprite);
+      this.stage.addChild(this.squad1Sprite);
 
       // add hp status last
       this.hpStatusHud = new PIXI.Graphics();
@@ -272,7 +282,7 @@ var Game = (function () {
 
       // game setup!
       this.turnManager.setCurrentLevel(this.level);
-      this.turnManager.addPlayer(this.player);
+      this.turnManager.addPlayer(this.playerSquad);
       this.turnManager.addEnemies(this.enemies);
       this.loop();
     }
@@ -283,8 +293,13 @@ var Game = (function () {
     value: function beginEntity(entity, startTile) {
       if (this.level.canMove(startTile[0], startTile[1])) {
         entity.moveTo(startTile[0], startTile[1], this.level.tileSize);
+        // also add unit(s) to level, but this is a poor way to do it
+        if (entity.type == ENTITY_TYPES.SQUAD) {
+          console.log("unit1", entity.unit1);
+          entity.unit1.moveTo(entity.unit1.tilePos[0], entity.unit1.tilePos[1], this.level.tileSize);
+        }
       } else {
-        throw new RangeError("Player outside of valid range");
+        throw new RangeError(entity.type + ' outside of valid range');
       }
     }
   }]);
@@ -309,7 +324,44 @@ var BasicEnemyAI = (function () {
   return BasicEnemyAI;
 })();
 
-var ENTITY_TYPES = { MOB: "MOB", PLAYER: "PLAYER" };
+var ENTITY_TYPES = { MOB: "MOB", PLAYER: "PLAYER", UNIT: "UNIT", SQUAD: "SQUAD" };
+
+var Squad = (function () {
+  function Squad(mainUnit, unit1, unit2, input) {
+    _classCallCheck(this, Squad);
+
+    this.mainUnit = mainUnit;
+    this.unit1 = unit1; // grid area is x-1, y+1
+    this.unit2 = unit2;
+    this.direction = { x: 0, y: 0 };
+    this._input = input;
+    this.type = ENTITY_TYPES.SQUAD;
+    this.isActing = false;
+  }
+
+  _createClass(Squad, [{
+    key: 'isDead',
+    value: function isDead() {
+      return false; // No death atm
+    }
+  }, {
+    key: 'update',
+    value: function update() {
+      return this._input.update(this);
+    }
+  }, {
+    key: 'moveTo',
+    value: function moveTo(col, row, tileSize) {
+      // always for mainUnit
+      // this.mainUnit.tilePos[0] = col, this.mainUnit.tilePos[1] = row;
+      // this.mainUnit.position.set((col*tileSize)+tileSize/2,(row*tileSize)+tileSize/2);
+      this.mainUnit.moveTo(col, row, tileSize);
+      this.unit1.moveTo(col - 1, row + 1, tileSize);
+    }
+  }]);
+
+  return Squad;
+})();
 
 var GameEntity = (function () {
   function GameEntity(col, row, input) {
@@ -381,13 +433,22 @@ var Level = (function () {
       console.log("moo gen");
     }
   }, {
+    key: 'getActingEntity',
+    value: function getActingEntity(entity) {
+      if (entity.type == ENTITY_TYPES.SQUAD) {
+        return entity.mainUnit;
+      } else {
+        return entity;
+      }
+    }
+  }, {
     key: 'update',
     value: function update(entity) {
-      var _entity$tilePos = _slicedToArray(entity.tilePos, 2);
+      var _getActingEntity$tilePos = _slicedToArray(this.getActingEntity(entity).tilePos, 2);
 
-      var col = _entity$tilePos[0];
-      var row = _entity$tilePos[1];
-
+      var col = _getActingEntity$tilePos[0];
+      var row = _getActingEntity$tilePos[1];
+      // need to do this differently for squads
       col += entity.direction.x;
       row += entity.direction.y;
 
