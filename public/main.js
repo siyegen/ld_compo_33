@@ -35,7 +35,7 @@ var Game = (function () {
   function Game() {
     _classCallCheck(this, Game);
 
-    this.width = 1000;
+    this.width = 1200;
     this.height = 800;
 
     this.inputState = {
@@ -185,8 +185,10 @@ var Game = (function () {
     value: function handleInput() {
       if (this.inputState.buttons.SPACE) {
         // some nice debug info
+        this.inputState.buttons.SPACE = false;
         console.log(this.player.tilePos);
-        this.player.currentHP -= 10;
+        // this.player.currentHP -=10;
+        console.log("dir", this.player.direction);
         console.log("width", this.player.width);
         console.log("numCols", this.level.numCols);
         console.log("index", this.player.tilePos[1] * this.level.numCols + this.player.tilePos[0]);
@@ -291,16 +293,16 @@ var Game = (function () {
   }, {
     key: 'beginEntity',
     value: function beginEntity(entity, startTile) {
-      if (this.level.canMove(startTile[0], startTile[1])) {
+      if (this.level.canMove(startTile[0], startTile[1], entity)) {
         entity.moveTo(startTile[0], startTile[1], this.level.tileSize);
         // also add unit(s) to level, but this is a poor way to do it
-        if (entity.type == ENTITY_TYPES.SQUAD) {
-          console.log("unit1", entity.unit1);
-          entity.unit1.moveTo(entity.unit1.tilePos[0], entity.unit1.tilePos[1], this.level.tileSize);
-        }
+        // if (entity.type == ENTITY_TYPES.SQUAD) {
+        //   console.log("unit1", entity.unit1);
+        //   entity.unit1.moveTo(entity.unit1.tilePos[0], entity.unit1.tilePos[1], this.level.tileSize);
+        // }
       } else {
-        throw new RangeError(entity.type + ' outside of valid range');
-      }
+          throw new RangeError(entity.type + ' outside of valid range: ' + startTile);
+        }
     }
   }]);
 
@@ -337,6 +339,8 @@ var Squad = (function () {
     this._input = input;
     this.type = ENTITY_TYPES.SQUAD;
     this.isActing = false;
+    // if breaking form, some penalty applies
+    this.form = { size: [3, 3], positions: [[0, 1], [1, 0], [1, 2]] }; // describes main - 1 - 2 relation
   }
 
   _createClass(Squad, [{
@@ -356,7 +360,9 @@ var Squad = (function () {
       // this.mainUnit.tilePos[0] = col, this.mainUnit.tilePos[1] = row;
       // this.mainUnit.position.set((col*tileSize)+tileSize/2,(row*tileSize)+tileSize/2);
       this.mainUnit.moveTo(col, row, tileSize);
-      this.unit1.moveTo(col - 1, row + 1, tileSize);
+      if (this.unit1 != undefined) {
+        this.unit1.moveTo(col - 1, row + 1, tileSize);
+      }
     }
   }]);
 
@@ -429,7 +435,7 @@ var Level = (function () {
       };
 
       this.tiles[6] = 1;
-      this.tiles[21] = 1;
+      this.tiles[25] = 1;
       console.log("moo gen");
     }
   }, {
@@ -452,7 +458,8 @@ var Level = (function () {
       col += entity.direction.x;
       row += entity.direction.y;
 
-      if (this.canMove(col, row)) {
+      // console.log("canMove", entity);
+      if (this.canMove(col, row, entity)) {
         entity.moveTo(col, row, this.tileSize);
         return true;
       } else {
@@ -461,13 +468,37 @@ var Level = (function () {
     }
   }, {
     key: 'canMove',
-    value: function canMove(col, row) {
+    value: function canMove(col, row, entity) {
+      if (entity.type == ENTITY_TYPES.SQUAD) {
+        return this._canMoveSquad(col, row, entity);
+      } else {
+        return this._canMoveSingle(col, row);
+      }
+    }
+  }, {
+    key: '_canMoveSingle',
+    value: function _canMoveSingle(col, row) {
       var attemptedMoveTile = this.tileAtColRow(col, row);
       if (attemptedMoveTile != undefined && attemptedMoveTile != 1) {
         return true;
       } else {
         return false;
       }
+    }
+  }, {
+    key: '_canMoveSquad',
+    value: function _canMoveSquad(col, row, squad) {
+      var canMove = false;
+      var attemptedMoveTile = this.tileAtColRow(col, row);
+      if (attemptedMoveTile != undefined && attemptedMoveTile != 1) {
+        // main unit can move, check squad
+        attemptedMoveTile = this.tileAtColRow(col - 1, row + 1);
+        if (attemptedMoveTile != undefined && attemptedMoveTile != 1) {
+          // main unit can move, check squad
+          canMove = true;
+        }
+      }
+      return canMove;
     }
   }, {
     key: 'getAdjTiles',
@@ -585,7 +616,7 @@ var RandomInputComponent = (function () {
     key: "update",
     value: function update(entity) {
       var direction = this.directionMap[MOVES[this._getRandomInt(0, 4)]]; // 0 up, 1 right, 2 down, 3 left
-      console.log("direction", direction);
+      // console.log("direction", direction);
       entity.direction.x += direction[0];
       entity.direction.y += direction[1];
     }

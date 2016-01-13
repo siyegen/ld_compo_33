@@ -22,7 +22,7 @@ function getRandomInt(min, max) {
 
 class Game {
   constructor(){
-    this.width = 1000;
+    this.width = 1200;
     this.height = 800;
 
     this.inputState = {
@@ -112,8 +112,10 @@ class Game {
 
   handleInput() {
     if (this.inputState.buttons.SPACE) { // some nice debug info
+      this.inputState.buttons.SPACE = false;
       console.log(this.player.tilePos);
-      this.player.currentHP -=10;
+      // this.player.currentHP -=10;
+      console.log("dir", this.player.direction);
       console.log("width", this.player.width);
       console.log("numCols", this.level.numCols);
       console.log("index",this.player.tilePos[1]*this.level.numCols + this.player.tilePos[0]);
@@ -187,15 +189,15 @@ class Game {
   }
   // this belongs on whatever owns level / game interactions
   beginEntity(entity, startTile) {
-    if (this.level.canMove(startTile[0], startTile[1])) {
+    if (this.level.canMove(startTile[0], startTile[1], entity)) {
       entity.moveTo(startTile[0], startTile[1], this.level.tileSize);
       // also add unit(s) to level, but this is a poor way to do it
-      if (entity.type == ENTITY_TYPES.SQUAD) {
-        console.log("unit1", entity.unit1);
-        entity.unit1.moveTo(entity.unit1.tilePos[0], entity.unit1.tilePos[1], this.level.tileSize);
-      }
+      // if (entity.type == ENTITY_TYPES.SQUAD) {
+      //   console.log("unit1", entity.unit1);
+      //   entity.unit1.moveTo(entity.unit1.tilePos[0], entity.unit1.tilePos[1], this.level.tileSize);
+      // }
     } else {
-      throw new RangeError(`${entity.type} outside of valid range`);
+      throw new RangeError(`${entity.type} outside of valid range: ${startTile}`);
     }
   }
 }
@@ -220,6 +222,8 @@ class Squad {
     this._input = input;
     this.type = ENTITY_TYPES.SQUAD;
     this.isActing = false;
+    // if breaking form, some penalty applies
+    this.form = {size:[3,3], positions:[[0,1],[1,0],[1,2]]}; // describes main - 1 - 2 relation
   }
   isDead() {
     return false; // No death atm
@@ -231,7 +235,9 @@ class Squad {
     // this.mainUnit.tilePos[0] = col, this.mainUnit.tilePos[1] = row;
     // this.mainUnit.position.set((col*tileSize)+tileSize/2,(row*tileSize)+tileSize/2);
     this.mainUnit.moveTo(col, row, tileSize);
-    this.unit1.moveTo(col-1, row+1, tileSize);
+    if (this.unit1 != undefined) {
+      this.unit1.moveTo(col-1, row+1, tileSize);
+    }
   }
 }
 
@@ -281,7 +287,7 @@ class Level {
     };
 
     this.tiles[6] = 1;
-    this.tiles[21] = 1;
+    this.tiles[25] = 1;
     console.log("moo gen");
   }
   getActingEntity(entity) {
@@ -296,20 +302,39 @@ class Level {
     col += entity.direction.x;
     row += entity.direction.y;
 
-    if (this.canMove(col, row)) {
+    // console.log("canMove", entity);
+    if (this.canMove(col, row, entity)) {
       entity.moveTo(col, row, this.tileSize);
       return true;
     } else {
       return false;
     }
   }
-  canMove(col, row) {
+  canMove(col, row, entity) {
+    if (entity.type == ENTITY_TYPES.SQUAD) {
+      return this._canMoveSquad(col, row, entity);
+    } else {
+      return this._canMoveSingle(col, row);
+    }
+  }
+  _canMoveSingle(col, row) {
     let attemptedMoveTile = this.tileAtColRow(col, row);
     if (attemptedMoveTile != undefined && attemptedMoveTile !=1) {
       return true;
     } else {
       return false;
     }
+  }
+  _canMoveSquad(col, row, squad) {
+    let canMove = false;
+    let attemptedMoveTile = this.tileAtColRow(col, row);
+    if (attemptedMoveTile != undefined && attemptedMoveTile !=1) { // main unit can move, check squad
+      attemptedMoveTile = this.tileAtColRow(col-1, row+1);
+      if (attemptedMoveTile != undefined && attemptedMoveTile !=1) { // main unit can move, check squad
+        canMove = true;
+      }
+    }
+    return canMove;
   }
   getAdjTiles(col, row) {
     return [];

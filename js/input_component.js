@@ -34,7 +34,7 @@ class RandomInputComponent {
   }
   update(entity) {
     let direction = this.directionMap[MOVES[this._getRandomInt(0, 4)]]; // 0 up, 1 right, 2 down, 3 left
-    console.log("direction", direction);
+    // console.log("direction", direction);
     entity.direction.x += direction[0];
     entity.direction.y += direction[1];
   }
