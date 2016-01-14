@@ -186,13 +186,13 @@ var Game = (function () {
       if (this.inputState.buttons.SPACE) {
         // some nice debug info
         this.inputState.buttons.SPACE = false;
-        console.log(this.player.tilePos);
+        console.log(this.player.currentTile());
         // this.player.currentHP -=10;
         console.log("dir", this.player.direction);
         console.log("width", this.player.width);
         console.log("numCols", this.level.numCols);
-        console.log("index", this.player.tilePos[1] * this.level.numCols + this.player.tilePos[0]);
-        console.log(this.level.tileAtColRow(this.player.tilePos[0], this.player.tilePos[1]));
+        console.log("index", this.player.currentTile()[1] * this.level.numCols + this.player.currentTile()[0]);
+        console.log(this.level.tileAtColRow(this.player.currentTile()[0], this.player.currentTile()[1]));
       }
     }
   }, {
@@ -224,15 +224,15 @@ var Game = (function () {
       this.player = new GameEntity(3, 3, null, ENTITY_TYPES.UNIT); // null should be NullInput for squad units
       this.pSprite.anchor.set(0.5, 0.5);
       this.pSprite.position = this.player.position;
-      // this.beginEntity(this.player, this.player.tilePos);
+      // this.beginEntity(this.player, this.player.currentTile());
       this.squad1Sprite = new PIXI.Sprite.fromImage('./images/moorawr.png');
       this.squad1 = new GameEntity(2, 4, null, ENTITY_TYPES.UNIT);
       this.squad1Sprite.anchor.set(0.5, 0.5);
       this.squad1Sprite.position = this.squad1.position;
-      // this.beginEntity(this.squad1, this.squad1.tilePos);
+      // this.beginEntity(this.squad1, this.squad1.currentTile());
 
       this.playerSquad = new Squad(this.player, this.squad1, null, new InputComponent(this.inputState));
-      this.beginEntity(this.playerSquad, this.player.tilePos); // shouldn't use mainUnit tilePos
+      this.beginEntity(this.playerSquad, this.player.currentTile()); // shouldn't use mainUnit currentTile()
 
       // setup for enemeies
       this.enemies = [];
@@ -244,7 +244,7 @@ var Game = (function () {
         enemySprite.position = enemy.position;
         this.enemies.push(enemy);
         this.enemySprites.push(enemySprite);
-        this.beginEntity(enemy, enemy.tilePos);
+        this.beginEntity(enemy, enemy.currentTile());
       };
 
       var _iteratorNormalCompletion3 = true;
@@ -298,7 +298,7 @@ var Game = (function () {
         // also add unit(s) to level, but this is a poor way to do it
         // if (entity.type == ENTITY_TYPES.SQUAD) {
         //   console.log("unit1", entity.unit1);
-        //   entity.unit1.moveTo(entity.unit1.tilePos[0], entity.unit1.tilePos[1], this.level.tileSize);
+        //   entity.unit1.moveTo(entity.unit1.currentTile()[0], entity.unit1.currentTile()[1], this.level.tileSize);
         // }
       } else {
           throw new RangeError(entity.type + ' outside of valid range: ' + startTile);
@@ -319,7 +319,7 @@ var BasicEnemyAI = (function () {
   _createClass(BasicEnemyAI, [{
     key: 'update',
     value: function update(level) {
-      var adjTiles = level.getAdjTiles.apply(level, _toConsumableArray(this._entity.tilePos));
+      var adjTiles = level.getAdjTiles.apply(level, _toConsumableArray(this._entity.currentTile()));
     }
   }]);
 
@@ -329,6 +329,8 @@ var BasicEnemyAI = (function () {
 var ENTITY_TYPES = { MOB: "MOB", PLAYER: "PLAYER", UNIT: "UNIT", SQUAD: "SQUAD" };
 
 var Squad = (function () {
+  // wraps 3 game entities player controls
+
   function Squad(mainUnit, unit1, unit2, input) {
     _classCallCheck(this, Squad);
 
@@ -340,10 +342,28 @@ var Squad = (function () {
     this.type = ENTITY_TYPES.SQUAD;
     this.isActing = false;
     // if breaking form, some penalty applies
-    this.form = { size: [3, 3], positions: [[0, 1], [1, 0], [1, 2]] }; // describes main - 1 - 2 relation
+    // this.form = {size:[3,3], positions:[[0,1],[1,0],[1,2]]}; // describes main - 1 - 2 relation
+    this.form = [[-1, 1]];
+    this.backupForm = [[0, 1]];
+    this.currentForm = this.form;
   }
 
   _createClass(Squad, [{
+    key: 'breakForm',
+    value: function breakForm() {
+      this.currentForm = this.backupForm;
+    }
+  }, {
+    key: 'setForm',
+    value: function setForm() {
+      this.currentForm = this.form;
+    }
+  }, {
+    key: 'currentTile',
+    value: function currentTile() {
+      return this.mainUnit.currentTile();
+    }
+  }, {
     key: 'isDead',
     value: function isDead() {
       return false; // No death atm
@@ -357,7 +377,7 @@ var Squad = (function () {
     key: 'moveTo',
     value: function moveTo(col, row, tileSize) {
       // always for mainUnit
-      // this.mainUnit.tilePos[0] = col, this.mainUnit.tilePos[1] = row;
+      // this.mainUnit.currentTile()[0] = col, this.mainUnit.currentTile()[1] = row;
       // this.mainUnit.position.set((col*tileSize)+tileSize/2,(row*tileSize)+tileSize/2);
       this.mainUnit.moveTo(col, row, tileSize);
       if (this.unit1 != undefined) {
@@ -386,6 +406,11 @@ var GameEntity = (function () {
   }
 
   _createClass(GameEntity, [{
+    key: 'currentTile',
+    value: function currentTile() {
+      return this.tilePos;
+    }
+  }, {
     key: 'isDead',
     value: function isDead() {
       if (this.currentHP <= 0) {
@@ -436,6 +461,7 @@ var Level = (function () {
 
       this.tiles[6] = 1;
       this.tiles[25] = 1;
+      this.tiles[25 + 24 * 6] = 1;
       console.log("moo gen");
     }
   }, {
@@ -450,15 +476,16 @@ var Level = (function () {
   }, {
     key: 'update',
     value: function update(entity) {
-      var _getActingEntity$tilePos = _slicedToArray(this.getActingEntity(entity).tilePos, 2);
+      var _getActingEntity$currentTile = this.getActingEntity(entity).currentTile();
 
-      var col = _getActingEntity$tilePos[0];
-      var row = _getActingEntity$tilePos[1];
+      var _getActingEntity$currentTile2 = _slicedToArray(_getActingEntity$currentTile, 2);
+
+      var col = _getActingEntity$currentTile2[0];
+      var row = _getActingEntity$currentTile2[1];
       // need to do this differently for squads
       col += entity.direction.x;
       row += entity.direction.y;
 
-      // console.log("canMove", entity);
       if (this.canMove(col, row, entity)) {
         entity.moveTo(col, row, this.tileSize);
         return true;
@@ -638,9 +665,13 @@ module.exports = {
 },{}],3:[function(require,module,exports){
 "use strict";
 
+var _slicedToArray = (function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; })();
+
 var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var ENTITY_TYPES = { MOB: "MOB", PLAYER: "PLAYER", UNIT: "UNIT", SQUAD: "SQUAD" };
 
 var TurnManager = (function () {
   function TurnManager() {
@@ -684,7 +715,8 @@ var TurnManager = (function () {
       if (!this.player.isActing) {
         return;
       }
-      var didMove = this.level.update(this.player);
+      // let didMove = this.level.update(this.player);
+      var didMove = this._updateMove(this.player);
 
       if (didMove) {
         var _iteratorNormalCompletion = true;
@@ -726,6 +758,72 @@ var TurnManager = (function () {
       this.player.isActing = false;
       this.player.direction.x = 0;
       this.player.direction.y = 0;
+    }
+  }, {
+    key: "_updateMove",
+    value: function _updateMove(entity) {
+      console.log("moving from: ", entity.currentTile(), entity.direction);
+
+      var _entity$currentTile = entity.currentTile();
+
+      var _entity$currentTile2 = _slicedToArray(_entity$currentTile, 2);
+
+      var tryCol = _entity$currentTile2[0];
+      var tryRow = _entity$currentTile2[1];
+
+      tryCol += entity.direction.x;
+      tryRow += entity.direction.y;
+      console.log("trying to move to: ", tryCol, tryRow);
+
+      // now check move and then move, with entity and level
+      // check if form can snap back
+      return this.checkAndMove(tryCol, tryRow, entity, this.level);
+
+      // if (this.canMove(col, row, entity)) {
+      //   entity.moveTo(col, row, this.tileSize);
+      //   return true;
+      // } else {
+      //   return false;
+      // }
+    }
+  }, {
+    key: "checkAndMove",
+    value: function checkAndMove(col, row, entity, level) {
+      if (entity.type == ENTITY_TYPES.SQUAD) {
+        return this._canMoveSquad(col, row, entity, level);
+      } else {
+        return this._canMoveSingle(col, row);
+      }
+    }
+
+    // _canMoveSingle(col, row) {
+    //   let attemptedMoveTile = this.tileAtColRow(col, row);
+    //   if (attemptedMoveTile != undefined && attemptedMoveTile !=1) {
+    //     return true;
+    //   } else {
+    //     return false;
+    //   }
+    // }
+  }, {
+    key: "_canMoveSquad",
+    value: function _canMoveSquad(col, row, squad, level) {
+      // first check if main can move, then check if sub can move or if needs to "break form"
+      var canMove = false;
+      var attemptedMoveTile = level.tileAtColRow(col, row);
+      if (attemptedMoveTile != undefined && attemptedMoveTile != 1) {
+        // main unit can move, check squad
+        canMove = true;
+        squad.mainUnit.moveTo(col, row, level.tileSize);
+        attemptedMoveTile = level.tileAtColRow(col + squad.currentForm[0][0], row + squad.currentForm[0][1]);
+        if (attemptedMoveTile != undefined && attemptedMoveTile != 1) {// main unit can move, check squad
+          // squad.unit1.moveTo(col+squad.currentForm[0][0], row+squad.currentForm[0][1], level.tileSize);
+          // noop
+        } else {
+            squad.breakForm(); // first spot behind main, check first
+          }
+        squad.unit1.moveTo(col + squad.currentForm[0][0], row + squad.currentForm[0][1], level.tileSize);
+      }
+      return canMove;
     }
   }, {
     key: "turnText",

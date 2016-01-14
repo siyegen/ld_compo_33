@@ -113,13 +113,13 @@ class Game {
   handleInput() {
     if (this.inputState.buttons.SPACE) { // some nice debug info
       this.inputState.buttons.SPACE = false;
-      console.log(this.player.tilePos);
+      console.log(this.player.currentTile());
       // this.player.currentHP -=10;
       console.log("dir", this.player.direction);
       console.log("width", this.player.width);
       console.log("numCols", this.level.numCols);
-      console.log("index",this.player.tilePos[1]*this.level.numCols + this.player.tilePos[0]);
-      console.log(this.level.tileAtColRow(this.player.tilePos[0], this.player.tilePos[1]));
+      console.log("index",this.player.currentTile()[1]*this.level.numCols + this.player.currentTile()[0]);
+      console.log(this.level.tileAtColRow(this.player.currentTile()[0], this.player.currentTile()[1]));
     }
   }
 
@@ -144,15 +144,15 @@ class Game {
     this.player = new GameEntity(3, 3, null, ENTITY_TYPES.UNIT); // null should be NullInput for squad units
     this.pSprite.anchor.set(0.5, 0.5);
     this.pSprite.position = this.player.position;
-    // this.beginEntity(this.player, this.player.tilePos);
+    // this.beginEntity(this.player, this.player.currentTile());
     this.squad1Sprite = new PIXI.Sprite.fromImage('./images/moorawr.png');
     this.squad1 = new GameEntity(2, 4, null, ENTITY_TYPES.UNIT);
     this.squad1Sprite.anchor.set(0.5, 0.5);
     this.squad1Sprite.position = this.squad1.position;
-    // this.beginEntity(this.squad1, this.squad1.tilePos);
+    // this.beginEntity(this.squad1, this.squad1.currentTile());
 
     this.playerSquad = new Squad(this.player, this.squad1, null, new InputComponent(this.inputState));
-    this.beginEntity(this.playerSquad, this.player.tilePos); // shouldn't use mainUnit tilePos
+    this.beginEntity(this.playerSquad, this.player.currentTile()); // shouldn't use mainUnit currentTile()
 
 
     // setup for enemeies
@@ -165,7 +165,7 @@ class Game {
       enemySprite.position = enemy.position;
       this.enemies.push(enemy);
       this.enemySprites.push(enemySprite);
-      this.beginEntity(enemy, enemy.tilePos);
+      this.beginEntity(enemy, enemy.currentTile());
     };
 
     for (let enemySprite of this.enemySprites) {
@@ -194,7 +194,7 @@ class Game {
       // also add unit(s) to level, but this is a poor way to do it
       // if (entity.type == ENTITY_TYPES.SQUAD) {
       //   console.log("unit1", entity.unit1);
-      //   entity.unit1.moveTo(entity.unit1.tilePos[0], entity.unit1.tilePos[1], this.level.tileSize);
+      //   entity.unit1.moveTo(entity.unit1.currentTile()[0], entity.unit1.currentTile()[1], this.level.tileSize);
       // }
     } else {
       throw new RangeError(`${entity.type} outside of valid range: ${startTile}`);
@@ -207,13 +207,13 @@ class BasicEnemyAI {
     this._entity = entity;
   }
   update(level) {
-    let adjTiles = level.getAdjTiles(...this._entity.tilePos);
+    let adjTiles = level.getAdjTiles(...this._entity.currentTile());
   }
 }
 
 const ENTITY_TYPES = {MOB:"MOB",PLAYER:"PLAYER",UNIT:"UNIT",SQUAD:"SQUAD"};
 
-class Squad {
+class Squad { // wraps 3 game entities player controls
   constructor(mainUnit, unit1, unit2, input) {
     this.mainUnit = mainUnit;
     this.unit1 = unit1; // grid area is x-1, y+1
@@ -223,7 +223,19 @@ class Squad {
     this.type = ENTITY_TYPES.SQUAD;
     this.isActing = false;
     // if breaking form, some penalty applies
-    this.form = {size:[3,3], positions:[[0,1],[1,0],[1,2]]}; // describes main - 1 - 2 relation
+    // this.form = {size:[3,3], positions:[[0,1],[1,0],[1,2]]}; // describes main - 1 - 2 relation
+    this.form = [[-1, 1]];
+    this.backupForm = [[0,1]];
+    this.currentForm = this.form;
+  }
+  breakForm() {
+    this.currentForm = this.backupForm;
+  }
+  setForm() {
+    this.currentForm = this.form;
+  }
+  currentTile() {
+    return this.mainUnit.currentTile();
   }
   isDead() {
     return false; // No death atm
@@ -232,7 +244,7 @@ class Squad {
     return this._input.update(this);
   }
   moveTo(col, row, tileSize) { // always for mainUnit
-    // this.mainUnit.tilePos[0] = col, this.mainUnit.tilePos[1] = row;
+    // this.mainUnit.currentTile()[0] = col, this.mainUnit.currentTile()[1] = row;
     // this.mainUnit.position.set((col*tileSize)+tileSize/2,(row*tileSize)+tileSize/2);
     this.mainUnit.moveTo(col, row, tileSize);
     if (this.unit1 != undefined) {
@@ -251,6 +263,9 @@ class GameEntity {
     this._input = input;
     this.isActing = false;
     this.type = type;
+  }
+  currentTile() {
+    return this.tilePos;
   }
   isDead() {
     if (this.currentHP <=0) {
@@ -288,6 +303,7 @@ class Level {
 
     this.tiles[6] = 1;
     this.tiles[25] = 1;
+    this.tiles[25+(24*6)] = 1;
     console.log("moo gen");
   }
   getActingEntity(entity) {
@@ -298,11 +314,10 @@ class Level {
     }
   }
   update (entity) {
-    let [col, row] = this.getActingEntity(entity).tilePos; // need to do this differently for squads
+    let [col, row] = this.getActingEntity(entity).currentTile(); // need to do this differently for squads
     col += entity.direction.x;
     row += entity.direction.y;
 
-    // console.log("canMove", entity);
     if (this.canMove(col, row, entity)) {
       entity.moveTo(col, row, this.tileSize);
       return true;
